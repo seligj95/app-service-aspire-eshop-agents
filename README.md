@@ -1,57 +1,21 @@
-# Project Name
+---
+page_type: sample
+languages:
+- azdeveloper
+- dotnet
+- python
+- bicep
+- html
+products:
+- azure
+- azure-app-service
+urlFragment: msdocs-django-postgresql-sample-app
+name: Tutorial sample - Run a local SLM in a sidecar container in Azure App Service
+description: This sample contains a .NET RAG front-end application and a FastAPI back end that hosts a CPI optimized Phi-3 mini model. They can run together in a Linux App Service app with a sidecar.
+---
+<!-- YAML front-matter schema: https://review.learn.microsoft.com/en-us/help/contribute/samples/process/onboarding?branch=main#supported-metadata-fields-for-readmemd -->
 
-(short, 1-3 sentenced, description of the project)
+# Tutorial sample - Run a local SLM in a sidecar container in Azure App Service
 
-## Features
-
-This project framework provides the following features:
-
-* Feature 1
-* Feature 2
-* ...
-
-## Getting Started
-
-### Prerequisites
-
-(ideally very short, if any)
-
-- OS
-- Library version
-- ...
-
-### Installation
-
-(ideally very short)
-
-- npm install [package name]
-- mvn install
-- ...
-
-### Quickstart
-(Add steps to get up and running quickly)
-
-1. git clone [repository clone url]
-2. cd [repository name]
-3. ...
-
-
-## Demo
-
-A demo app is included to show how to use the project.
-
-To run the demo, follow these steps:
-
-(Add steps to start up the demo)
-
-1.
-2.
-3.
-
-## Resources
-
-(Any additional resources or related projects)
-
-- Link to supporting information
-- Link to similar sample
-- ...
+This sample contains a .NET RAG front-end application and a FastAPI back end that hosts a CPU optimized Phi-3 mini model. Get started by following the tutorial [*Tutorial: Run a local SLM in a sidecar container 
+ in Azure App Service*](https://docs.microsoft.com/azure/app-service/tutorial-sidecar-local-slm).
