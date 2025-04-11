@@ -454,22 +454,25 @@
             errorMessage = $"An error occurred: {ex.Message}";
         }
     }
-    
-    private async Task UpdateCartCounterDisplay(HttpResponseMessage response)
+      private async Task UpdateCartCounterDisplay(HttpResponseMessage response)
     {
         try
         {
-            // Get the updated cart items from the API response
-            var updatedCart = await response.Content.ReadFromJsonAsync<List<CartItem>>();
+            // Get the updated cart summary from the API response
+            var cartSummary = await response.Content.ReadFromJsonAsync<CartSummary>();
             
             // Calculate the new cart count
-            int newCount = updatedCart?.Sum(item => item.Quantity) ?? 0;
+            int newCount = cartSummary?.Items?.Sum(item => item.Quantity) ?? 0;
             
             // Use JavaScript interop to update the cart badge in real-time
             await JSRuntime.InvokeVoidAsync("updateCartBadge", newCount);
+            
+            // Notify other components (like MainLayout) about cart update
+            CartUpdateService.NotifyCartUpdated();
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"Error updating cart counter: {ex.Message}");
             // Silently fail if we can't update the counter
         }
     }

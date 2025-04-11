@@ -45,17 +45,11 @@ builder.Services.AddControllers();
 
 // Register the Swagger generator and define the OpenAPI specification
 builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo
+{    c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Fashion Store Inventory API",
         Version = "v1",
-        Description = "API for managing fashion store inventory",
-        Contact = new OpenApiContact
-        {
-            Name = "Fashion Store",
-            Email = "support@fashionstore.com"
-        }
+        Description = "API for managing fashion store inventory"
     });
 
     // Use XML comments for Swagger documentation

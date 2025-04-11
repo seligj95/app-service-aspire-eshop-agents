@@ -2,16 +2,21 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace dotnetfashionassistant.Models
-{    public class CartItem
+{
+    public class CartSummary
+    {
+        public List<CartItem> Items { get; set; } = new();
+        public decimal TotalCost { get; set; }
+    }
+    
+    public class CartItem
     {
         public int ProductId { get; set; }
         public required string ProductName { get; set; }
         public required string Size { get; set; }
         public int Quantity { get; set; }
         public decimal Price { get; set; }
-    }
-
-    public static class CartService
+    }    public static class CartService
     {
         // In-memory cart storage - in a real application, this would use session state or a database
         private static readonly List<CartItem> Cart = new();
@@ -22,7 +27,22 @@ namespace dotnetfashionassistant.Models
         public static List<CartItem> GetCart()
         {
             return Cart;
-        }        /// <summary>
+        }
+        
+        /// <summary>
+        /// Gets the cart summary including items and total cost
+        /// </summary>
+        /// <returns>A CartSummary containing items and total cost</returns>
+        public static CartSummary GetCartSummary()
+        {
+            decimal totalCost = Cart.Sum(item => item.Quantity * item.Price);
+            
+            return new CartSummary
+            {
+                Items = Cart,
+                TotalCost = totalCost
+            };
+        }/// <summary>
         /// Adds an item to the cart or increases quantity if it already exists
         /// </summary>
         public static void AddToCart(int productId, string productName, string size, int quantity, decimal price)

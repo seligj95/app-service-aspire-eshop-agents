@@ -182,14 +182,13 @@
     public void Dispose()
     {
         CartUpdateService.CartUpdated -= OnCartUpdated;
-    }
-      public async Task UpdateCartItemCount()
+    }      public async Task UpdateCartItemCount()
     {
         try
         {
             var client = HttpClientFactory.CreateClient("LocalApi");
-            var cartItems = await client.GetFromJsonAsync<List<dotnetfashionassistant.Models.CartItem>>("api/Cart");
-            CartItemCount = cartItems?.Sum(item => item.Quantity) ?? 0;
+            var cartSummary = await client.GetFromJsonAsync<dotnetfashionassistant.Models.CartSummary>("api/Cart");
+            CartItemCount = cartSummary?.Items?.Sum(item => item.Quantity) ?? 0;
             StateHasChanged();
         }
         catch (Exception)

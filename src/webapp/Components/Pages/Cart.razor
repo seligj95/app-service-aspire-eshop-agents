@@ -2,10 +2,12 @@
 @layout MainLayout
 @using dotnetfashionassistant.Models
 @using dotnetfashionassistant.Components.Layout
+@using dotnetfashionassistant.Services
 @inject HttpClient Http
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject CartUpdateService CartUpdateService
 @rendermode InteractiveServer
 
 <PageTitle>Shopping Cart</PageTitle>
@@ -73,19 +75,14 @@
                 }
             </div>
             
-            <div class="cart-summary">
-                <div class="cart-totals">
+            <div class="cart-summary">                <div class="cart-totals">
                     <div class="cart-total-row">
                         <span>Items (@cartItems.Sum(i => i.Quantity)):</span>
                         <span class="value">$@CalculateSubtotal().ToString("0.00")</span>
                     </div>
-                    <div class="cart-total-row">
-                        <span>Estimated Tax:</span>
-                        <span class="value">$@CalculateTax().ToString("0.00")</span>
-                    </div>
                     <div class="cart-total-row total">
                         <span>Order Total:</span>
-                        <span class="value">$@CalculateTotal().ToString("0.00")</span>
+                        <span class="value">$@CalculateSubtotal().ToString("0.00")</span>
                     </div>
                 </div>
                 
@@ -251,15 +248,12 @@
         border-bottom: 1px dashed #e0e0e0;
         color: #444;
     }
-    
-    .cart-total-row.total {
+      .cart-total-row.total {
         font-size: 1.2rem;
         font-weight: bold;
         color: #000;
-        border-top: 2px solid #ddd;
         border-bottom: none;
-        padding-top: 1rem;
-        margin-top: 0.5rem;
+        padding-top: 0.5rem;
     }
     
     .cart-actions {
@@ -311,6 +305,7 @@
 
 @code {
     private List<CartItem> cartItems = new List<CartItem>();
+    private decimal totalCost = 0;
     private bool isLoading = true;
     private HttpClient client = null!;
 
@@ -325,12 +320,23 @@
         isLoading = true;
         try
         {
-            cartItems = await client.GetFromJsonAsync<List<CartItem>>("api/Cart") ?? new List<CartItem>();
+            var cartSummary = await client.GetFromJsonAsync<CartSummary>("api/Cart");
+            if (cartSummary != null)
+            {
+                cartItems = cartSummary.Items;
+                totalCost = cartSummary.TotalCost;
+            }
+            else
+            {
+                cartItems = new List<CartItem>();
+                totalCost = 0;
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading cart: {ex.Message}");
             cartItems = new List<CartItem>();
+            totalCost = 0;
         }
         isLoading = false;
     }
@@ -342,19 +348,7 @@
     }    private decimal CalculateSubtotal()
     {
         return cartItems.Sum(item => item.Quantity * item.Price);
-    }
-
-    private decimal CalculateTax()
-    {
-        return CalculateSubtotal() * 0.07m; // 7% tax rate
-    }
-
-    private decimal CalculateTotal()
-    {
-        return CalculateSubtotal() + CalculateTax();
-    }
-
-    private async Task IncreaseQuantity(CartItem item)
+    }    private async Task IncreaseQuantity(CartItem item)
     {
         isLoading = true;
         try
@@ -364,10 +358,17 @@
             
             if (response.IsSuccessStatusCode)
             {
-                cartItems = await response.Content.ReadFromJsonAsync<List<CartItem>>() ?? new List<CartItem>();
-                
-                // Update cart counter immediately
-                await UpdateCartCounterDisplay();
+                var cartSummary = await response.Content.ReadFromJsonAsync<CartSummary>();
+                if (cartSummary != null)
+                {
+                    cartItems = cartSummary.Items;
+                    totalCost = cartSummary.TotalCost;
+                    
+                    // Update cart counter immediately
+                    await UpdateCartCounterDisplay();
+                    // Notify other components about cart update
+                    CartUpdateService.NotifyCartUpdated();
+                }
             }
             else
             {
@@ -380,9 +381,7 @@
             Console.WriteLine($"Error updating quantity: {ex.Message}");
         }
         isLoading = false;
-    }
-
-    private async Task DecreaseQuantity(CartItem item)
+    }    private async Task DecreaseQuantity(CartItem item)
     {
         if (item.Quantity <= 1) return;
         
@@ -394,10 +393,17 @@
             
             if (response.IsSuccessStatusCode)
             {
-                cartItems = await response.Content.ReadFromJsonAsync<List<CartItem>>() ?? new List<CartItem>();
-                
-                // Update cart counter immediately
-                await UpdateCartCounterDisplay();
+                var cartSummary = await response.Content.ReadFromJsonAsync<CartSummary>();
+                if (cartSummary != null)
+                {
+                    cartItems = cartSummary.Items;
+                    totalCost = cartSummary.TotalCost;
+                    
+                    // Update cart counter immediately
+                    await UpdateCartCounterDisplay();
+                    // Notify other components about cart update
+                    CartUpdateService.NotifyCartUpdated();
+                }
             }
         }
         catch (Exception ex)
@@ -405,9 +411,7 @@
             Console.WriteLine($"Error updating quantity: {ex.Message}");
         }
         isLoading = false;
-    }
-
-    private async Task RemoveItem(CartItem item)
+    }    private async Task RemoveItem(CartItem item)
     {
         isLoading = true;
         try
@@ -415,10 +419,17 @@
             var response = await client.DeleteAsync($"api/Cart/{item.ProductId}/size/{item.Size}");
             if (response.IsSuccessStatusCode)
             {
-                cartItems = await response.Content.ReadFromJsonAsync<List<CartItem>>() ?? new List<CartItem>();
-                
-                // Update cart counter immediately
-                await UpdateCartCounterDisplay();
+                var cartSummary = await response.Content.ReadFromJsonAsync<CartSummary>();
+                if (cartSummary != null)
+                {
+                    cartItems = cartSummary.Items;
+                    totalCost = cartSummary.TotalCost;
+                    
+                    // Update cart counter immediately
+                    await UpdateCartCounterDisplay();
+                    // Notify other components about cart update
+                    CartUpdateService.NotifyCartUpdated();
+                }
             }
         }
         catch (Exception ex)
@@ -426,9 +437,7 @@
             Console.WriteLine($"Error removing item: {ex.Message}");
         }
         isLoading = false;
-    }
-
-    private async Task ClearCart()
+    }    private async Task ClearCart()
     {
         isLoading = true;
         try
@@ -436,10 +445,22 @@
             var response = await client.DeleteAsync("api/Cart");
             if (response.IsSuccessStatusCode)
             {
-                cartItems.Clear();
+                var cartSummary = await response.Content.ReadFromJsonAsync<CartSummary>();
+                if (cartSummary != null)
+                {
+                    cartItems = cartSummary.Items;
+                    totalCost = cartSummary.TotalCost;
+                }
+                else
+                {
+                    cartItems.Clear();
+                    totalCost = 0;
+                }
                 
                 // Update cart counter immediately (will be 0 since cart is cleared)
                 await UpdateCartCounterDisplay();
+                // Notify other components about cart update
+                CartUpdateService.NotifyCartUpdated();
             }
         }
         catch (Exception ex)
