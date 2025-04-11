@@ -5,6 +5,7 @@
 @inject HttpClient Http
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 
 <PageTitle>Shopping Cart</PageTitle>
@@ -179,9 +180,7 @@
             cartItems = new List<CartItem>();
         }
         isLoading = false;
-    }
-
-    private async Task IncreaseQuantity(CartItem item)
+    }    private async Task IncreaseQuantity(CartItem item)
     {
         isLoading = true;
         try
@@ -192,6 +191,9 @@
             if (response.IsSuccessStatusCode)
             {
                 cartItems = await response.Content.ReadFromJsonAsync<List<CartItem>>() ?? new List<CartItem>();
+                
+                // Update cart counter immediately
+                await UpdateCartCounterDisplay();
             }
             else
             {
@@ -206,9 +208,7 @@
             Console.WriteLine($"Error updating quantity: {ex.Message}");
         }
         isLoading = false;
-    }
-
-    private async Task DecreaseQuantity(CartItem item)
+    }    private async Task DecreaseQuantity(CartItem item)
     {
         if (item.Quantity <= 1) return;
         
@@ -221,6 +221,9 @@
             if (response.IsSuccessStatusCode)
             {
                 cartItems = await response.Content.ReadFromJsonAsync<List<CartItem>>() ?? new List<CartItem>();
+                
+                // Update cart counter immediately
+                await UpdateCartCounterDisplay();
             }
         }
         catch (Exception ex)
@@ -229,9 +232,7 @@
             Console.WriteLine($"Error updating quantity: {ex.Message}");
         }
         isLoading = false;
-    }
-
-    private async Task RemoveItem(CartItem item)
+    }    private async Task RemoveItem(CartItem item)
     {
         isLoading = true;
         try
@@ -240,6 +241,9 @@
             if (response.IsSuccessStatusCode)
             {
                 cartItems = await response.Content.ReadFromJsonAsync<List<CartItem>>() ?? new List<CartItem>();
+                
+                // Update cart counter immediately
+                await UpdateCartCounterDisplay();
             }
         }
         catch (Exception ex)
@@ -248,9 +252,7 @@
             Console.WriteLine($"Error removing item: {ex.Message}");
         }
         isLoading = false;
-    }
-
-    private async Task ClearCart()
+    }    private async Task ClearCart()
     {
         isLoading = true;
         try
@@ -259,6 +261,9 @@
             if (response.IsSuccessStatusCode)
             {
                 cartItems.Clear();
+                
+                // Update cart counter immediately (will be 0 since cart is cleared)
+                await UpdateCartCounterDisplay();
             }
         }
         catch (Exception ex)
@@ -272,5 +277,22 @@
     private void NavigateToInventory()
     {
         NavigationManager.NavigateTo("/inventory");
+    }
+    
+    // Method to update the cart counter immediately using JavaScript
+    private async Task UpdateCartCounterDisplay()
+    {
+        try
+        {
+            // Calculate the total quantity of items in the cart
+            int totalQuantity = cartItems?.Sum(item => item.Quantity) ?? 0;
+            
+            // Use JavaScript interop to update the cart badge in real-time
+            await JSRuntime.InvokeVoidAsync("updateCartBadge", totalQuantity);
+        }
+        catch
+        {
+            // Silently fail if we can't update the counter
+        }
     }
 }
