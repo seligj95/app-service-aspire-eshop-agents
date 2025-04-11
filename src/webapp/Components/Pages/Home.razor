@@ -51,11 +51,9 @@
         <div class="spinner-container">
             <Spinner Color="SpinnerColor.Primary" />
         </div>
-    }
-
-    <div class="card mt-3 fixed-card">
+    }    <div class="card mt-3 fixed-card">
         <div class="card-body fixed-card-body">
-            <p>@((MarkupString)response)</p>
+            <p>@((MarkupString)(response ?? ""))</p>
         </div>
     </div>
 </div>
@@ -159,16 +157,23 @@
     private async Task Send()
     {
         response = string.Empty;
-        isLoading = true;
-        
-        if (string.IsNullOrEmpty(selectedProduct))
+        isLoading = true;        if (string.IsNullOrEmpty(selectedProduct))
         {
             response = "Please select a product first.";
             isLoading = false;
             return;
         }
         
-        Product selectedItem = new Product().GetProduct(int.Parse(selectedProduct));
+        // Use null-conditional operator to safely handle potential null result
+        Product? selectedItem = products.Find(p => p.Id == int.Parse(selectedProduct));
+        
+        // Check if product was found
+        if (selectedItem == null)
+        {
+            response = "Product not found. Please select a different product.";
+            isLoading = false;
+            return;
+        }
 
         if (useAzureAIAgent)
         {
@@ -179,12 +184,11 @@
         else
         {
             // Original Phi-3 Sidecar mode
-            var request = new HttpRequestMessage(HttpMethod.Post, configuration["FashionAssistantAPI:Url"]);
+            var request = new HttpRequestMessage(HttpMethod.Post, configuration["FashionAssistantAPI:Url"] ?? throw new InvalidOperationException("FashionAssistantAPI:Url configuration is missing"));
             request.Headers.Add(HeaderNames.Accept, "application/json");
-
             var queryData = new Dictionary<string, string>
             {
-                {"user_message", message},
+                {"user_message", message ?? string.Empty},
                 {"product_name", selectedItem.Name},
                 {"product_description", selectedItem.Description }
             };
@@ -234,14 +238,12 @@
         new Product { Id = 111, Name = "White & Navy Blue Slim Fit Printed Casual Shirt", Description = "White and navy blue printed casual shirt, has a spread collar, short sleeves, button placket, curved hem, one patch pocket" },
         new Product { Id = 116, Name = "Red Slim Fit Checked Casual Shirt", Description = "Red checked casual shirt, has a spread collar, long sleeves, button placket, curved hem, one patch pocket" },
         new Product { Id = 10, Name = "Navy Blue Washed Denim Jacket", Description = "Navy Blue washed denim jacket, has a spread collar, 4 pockets, button closure, long sleeves, straight hem, and unlined" }
-    };
-
-    public class Product
+    };    public class Product
     {
         public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
+        public required string Name { get; set; }
+        public required string Description { get; set; }
 
-        public Product GetProduct(int Id) => products.Find(products => products.Id == Id);
+        public Product GetProduct(int Id) => products.Find(products => products.Id == Id) ?? throw new InvalidOperationException("Product not found");
     }
 }
