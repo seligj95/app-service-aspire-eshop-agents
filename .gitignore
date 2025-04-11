@@ -199,6 +199,55 @@ PublishScripts/
 # The packages folder can be ignored because of Package Restore
 **/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.
+
+# Python-specific ignores for Phi-3 Sidecar
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+ENV/
+.venv/
+.env
+.python-version
+
+# ML Model files - they can be large
+*.onnx
+*.model
+*.bin
+*.pt
+*.pth
+model_data/
+
+# Azure-specific
+.azure/
+local.settings.json
+local.settings*.json
+azurite/
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 !**/[Pp]ackages/build/
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
