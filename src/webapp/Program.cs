@@ -70,16 +70,14 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
-else
+
+// Enable Swagger UI in all environments
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    // Enable Swagger UI in development mode
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Fashion Store Inventory API v1");
-        c.RoutePrefix = "api/docs";
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Fashion Store Inventory API v1");
+    c.RoutePrefix = "api/docs";
+});
 
 app.UseStaticFiles();
 app.UseAntiforgery();
