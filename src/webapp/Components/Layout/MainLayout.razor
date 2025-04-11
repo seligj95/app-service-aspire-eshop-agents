@@ -6,8 +6,7 @@
             <h1>Fashion Store Assistant</h1>
         </div>
         <nav class="main-nav">
-            <ul class="nav-list">
-                <li class="nav-item">
+            <ul class="nav-list">                <li class="nav-item">
                     <a class="nav-link @(GetCurrentPageClass("/"))" href="/">
                         <i class="bi bi-chat-dots-fill"></i> Assistant
                     </a>
@@ -15,6 +14,15 @@
                 <li class="nav-item">
                     <a class="nav-link @(GetCurrentPageClass("/inventory"))" href="/inventory">
                         <i class="bi bi-box-seam-fill"></i> Inventory
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(GetCurrentPageClass("/cart"))" href="/cart">
+                        <i class="bi bi-cart-fill"></i> Cart
+                        @if (CartItemCount > 0)
+                        {
+                            <span class="cart-badge">@CartItemCount</span>
+                        }
                     </a>
                 </li>
             </ul>
@@ -89,9 +97,24 @@
         background-color: #0078d7;
         color: white;
     }
-    
-    .nav-link i {
+      .nav-link i {
         font-size: 1.2rem;
+    }
+    
+    .cart-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background-color: #ff6b6b;
+        color: white;
+        border-radius: 50%;
+        padding: 0.15rem 0.35rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+    
+    .nav-item {
+        position: relative;
     }
     
     @@media (max-width: 768px) {
@@ -118,6 +141,45 @@
 @code {
     [Inject]
     public required NavigationManager NavigationManager { get; set; }
+    
+    [Inject]
+    public required IHttpClientFactory HttpClientFactory { get; set; }
+    
+    private int CartItemCount { get; set; } = 0;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await UpdateCartItemCount();
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Set up a timer to periodically update cart count (every 5 seconds)
+            var timer = new System.Threading.Timer(async _ =>
+            {
+                await UpdateCartItemCount();
+                await InvokeAsync(StateHasChanged);
+            }, null, 0, 5000);
+        }
+    }
+    
+    private async Task UpdateCartItemCount()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("LocalApi");
+            var cartItems = await client.GetFromJsonAsync<List<dotnetfashionassistant.Models.CartItem>>("api/Cart");
+            CartItemCount = cartItems?.Sum(item => item.Quantity) ?? 0;
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            // Silently fail if API is not available
+            CartItemCount = 0;
+        }
+    }
     
     private string GetCurrentPageClass(string page)
     {
