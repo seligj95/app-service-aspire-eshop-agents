@@ -2,22 +2,35 @@
 @layout MainLayout
 @using dotnetfashionassistant.Models
 @using dotnetfashionassistant.Components.Layout;
+@using dotnetfashionassistant.Services
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject CartUpdateService CartUpdateService
 @rendermode InteractiveServer
 
 <PageTitle>Fashion Store Inventory</PageTitle>
 
 <div class="container">
     <div class="content">
-        <h1 class="page-title">Fashion Store Inventory</h1>
-
-        @if (showSuccessToast)
+        <h1 class="page-title">Fashion Store Inventory</h1>        @if (showSuccessToast)
         {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle-fill me-2"></i>
-                Item added to cart successfully!
-                <button type="button" class="btn-close" @onclick="() => showSuccessToast = false" aria-label="Close"></button>
+            <div class="position-fixed top-0 start-0 w-100 p-0 mt-navbar" style="z-index: 1040">
+                <div class="toast show mx-auto bg-success text-white" role="alert" aria-live="assertive" aria-atomic="true" style="max-width: 600px;">
+                    <div class="toast-header bg-success text-white">
+                        <strong class="me-auto">Success</strong>
+                        <button type="button" class="btn-close btn-close-white" @onclick="() => showSuccessToast = false" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-check-circle-fill me-2" style="font-size: 1.5rem;"></i>
+                            <div>
+                                <strong>Item added to cart successfully!</strong>
+                                <div class="mt-1">@lastAddedItem</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         }
         
@@ -53,11 +66,16 @@
                                 <td class="@GetStockLevelClass(item.SizeInventory[size])">
                                     @item.SizeInventory[size]
                                 </td>
-                            }                            <td>
-                                <div class="d-flex flex-column gap-2">
-                                    <select class="form-select form-select-sm" @bind="selectedSizes[item.ProductId]">
-                                        <option value="">Select Size</option>
-                                        @foreach (var size in GetAvailableSizes(item))
+                            }                            <td>                                <div class="d-flex flex-column gap-2">
+                                    @{
+                                        var availableSizes = GetAvailableSizes(item);
+                                        var hasSizes = availableSizes.Count > 0;
+                                    }
+                                    <select class="form-select form-select-sm" 
+                                            @bind="selectedSizes[item.ProductId]" 
+                                            disabled="@(!hasSizes)">
+                                        <option value="">@(hasSizes ? "Select Size" : "No Sizes Available")</option>
+                                        @foreach (var size in availableSizes)
                                         {
                                             <option value="@size">@size</option>
                                         }
@@ -153,14 +171,17 @@
         align-items: center;
         margin-right: 20px;
         margin-bottom: 5px;
-    }
-
-    .legend-color {
+    }    .legend-color {
         display: inline-block;
         width: 20px;
         height: 20px;
         margin-right: 5px;
         border-radius: 3px;
+    }
+    
+    /* Positioning for toast notification below navbar */
+    .mt-navbar {
+        margin-top: 80px; /* Matches the height of the navigation bar */
     }
 </style>
 
@@ -252,6 +273,10 @@
             
         quantities[productId] = quantity;
     }
+      private string lastAddedItem = "";
+    
+    [CascadingParameter]
+    public MainLayout? MainLayout { get; set; }
     
     private async Task AddToCart(InventoryItem item)
     {
@@ -284,13 +309,15 @@
             
             if (response.IsSuccessStatusCode)
             {
+                // Set the details of the last added item for the toast notification
+                lastAddedItem = $"{quantity} x {item.ProductName} (Size: {size})";
                 showSuccessToast = true;
                 
                 // Reset quantity to 1 after successful add
                 quantities[item.ProductId] = 1;
                 
-                await Task.Delay(3000); // Auto-hide toast after 3 seconds
-                showSuccessToast = false;
+                // Update cart counter immediately using JavaScript interop
+                await UpdateCartCounterDisplay(response);
             }
             else
             {
@@ -307,5 +334,24 @@
     private void ViewCart()
     {
         NavigationManager.NavigateTo("/cart");
+    }
+    
+    private async Task UpdateCartCounterDisplay(HttpResponseMessage response)
+    {
+        try
+        {
+            // Get the updated cart items from the API response
+            var updatedCart = await response.Content.ReadFromJsonAsync<List<CartItem>>();
+            
+            // Calculate the new cart count
+            int newCount = updatedCart?.Sum(item => item.Quantity) ?? 0;
+            
+            // Use JavaScript interop to update the cart badge in real-time
+            await JSRuntime.InvokeVoidAsync("updateCartBadge", newCount);
+        }
+        catch
+        {
+            // Silently fail if we can't update the counter
+        }
     }
 }

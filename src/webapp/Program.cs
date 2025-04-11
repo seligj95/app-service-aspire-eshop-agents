@@ -20,6 +20,9 @@ builder.Services.AddHttpClient("LocalApi", client =>
 
 builder.Services.AddBlazorBootstrap();
 
+// Register CartUpdateService as a singleton so it can be used for cross-component communication
+builder.Services.AddSingleton<dotnetfashionassistant.Services.CartUpdateService>();
+
 // Add controllers for API endpoints
 builder.Services.AddControllers();
 
