@@ -13,7 +13,17 @@
 
 <div class="container">
     <div class="content">
-        <h1 class="page-title">Fashion Store Assistant</h1>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="page-title mb-0">Fashion Store Assistant</h1>
+            <div class="mode-toggle-container">
+                <div class="form-check form-switch mode-toggle">
+                    <input class="form-check-input" type="checkbox" @bind="useAzureAIAgent" id="flexSwitchCheckDefault">
+                    <label class="form-check-label fw-bold" for="flexSwitchCheckDefault">
+                        @(useAzureAIAgent ? "Azure AI Agent Mode" : "Phi-3 Sidecar Mode")
+                    </label>
+                </div>
+            </div>
+        </div>
 
         <div class="form-group">
             <label for="sltProduct" class="form-label">Select a product</label>
@@ -31,8 +41,8 @@
             <textarea @bind="message" class="form-control" id="txtQuery" rows="3" cols="40"></textarea>
         </div>
 
-        <div class="form-group">
-            <button class="btn btn-primary mt-2" @onclick="Send" disabled="@isLoading">Send</button>
+        <div class="form-group text-end">
+            <button class="btn btn-primary" @onclick="Send" disabled="@isLoading">Send</button>
         </div>
     </div>
 
@@ -65,10 +75,8 @@
     /* Narrow the heading */
     .page-title {
         font-size: 1.5em;
-        margin-bottom: 1em;
-        width: 100%;
-        max-width: 600px;
-        text-align: center;
+        width: auto;
+        text-align: left;
     }
 
     /* Content styling */
@@ -92,6 +100,30 @@
     .form-control {
         width: 100%;
         padding: 10px;
+    }
+
+    /* Mode toggle styling */
+    .mode-toggle-container {
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+
+    .mode-toggle .form-check-input {
+        width: 3rem;
+        height: 1.5rem;
+        margin-right: 8px;
+    }
+
+    .mode-toggle .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    .mode-toggle .form-check-label {
+        font-size: 1rem;
+        padding-top: 2px;
     }
 
     /* Spinner styling */
@@ -122,58 +154,78 @@
     private string? response;
     private string? selectedProduct { get; set; }
     private bool isLoading;
+    private bool useAzureAIAgent = false; // Toggle for AI mode
 
     private async Task Send()
     {
         response = string.Empty;
         isLoading = true;
+        
+        if (string.IsNullOrEmpty(selectedProduct))
+        {
+            response = "Please select a product first.";
+            isLoading = false;
+            return;
+        }
+        
         Product selectedItem = new Product().GetProduct(int.Parse(selectedProduct));
 
-        var request = new HttpRequestMessage(HttpMethod.Post, configuration["FashionAssistantAPI:Url"]);
-        request.Headers.Add(HeaderNames.Accept, "application/json");
-
-        var queryData = new Dictionary<string, string>
+        if (useAzureAIAgent)
         {
-            {"user_message", message},
-            {"product_name", selectedItem.Name},
-            {"product_description", selectedItem.Description }
-        };
-
-        request.Content = new StringContent(JsonSerializer.Serialize(queryData), Encoding.UTF8, "application/json");
-
-        var client = HttpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(120);
-
-        using (HttpResponseMessage responseMessage = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
+            // Azure AI Agent Service mode (not yet implemented, using placeholder response)
+            await Task.Delay(500); // Simulate a brief processing delay
+            response = $"<b>Azure AI Agent Service Response:</b><br><br>I'm analyzing {selectedItem.Name}.<br><br>This feature will be fully implemented soon. For now, I can tell you that this is a high-quality product suitable for various occasions.<br><br>Feel free to ask more specific questions once this mode is fully implemented!";
+        }
+        else
         {
-            responseMessage.EnsureSuccessStatusCode();
+            // Original Phi-3 Sidecar mode
+            var request = new HttpRequestMessage(HttpMethod.Post, configuration["FashionAssistantAPI:Url"]);
+            request.Headers.Add(HeaderNames.Accept, "application/json");
 
-            if (responseMessage.Content is object)
+            var queryData = new Dictionary<string, string>
             {
-                using (Stream streamToReadFrom = await responseMessage.Content.ReadAsStreamAsync())
+                {"user_message", message},
+                {"product_name", selectedItem.Name},
+                {"product_description", selectedItem.Description }
+            };
+
+            request.Content = new StringContent(JsonSerializer.Serialize(queryData), Encoding.UTF8, "application/json");
+
+            var client = HttpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(120);
+
+            using (HttpResponseMessage responseMessage = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
+            {
+                responseMessage.EnsureSuccessStatusCode();
+
+                if (responseMessage.Content is object)
                 {
-                    using (StreamReader reader = new StreamReader(streamToReadFrom))
+                    using (Stream streamToReadFrom = await responseMessage.Content.ReadAsStreamAsync())
                     {
-                        char[] buffer = new char[8192];
-                        int bytesRead;
-                        while ((bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        using (StreamReader reader = new StreamReader(streamToReadFrom))
                         {
-                            response += new string(buffer, 0, bytesRead);
-                            StateHasChanged();
+                            char[] buffer = new char[8192];
+                            int bytesRead;
+                            while ((bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                            {
+                                response += new string(buffer, 0, bytesRead);
+                                StateHasChanged();
+                            }
                         }
                     }
                 }
             }
+            
+            // Format the response to display list items on separate lines
+            response = response.Replace("1.", "<br>1.")
+                              .Replace("2.", "<br>2.")
+                              .Replace("3.", "<br>3.")
+                              .Replace("4.", "<br>4.")
+                              .Replace("5.", "<br>5.")
+                              .Replace("-", "<br>-");
         }
+        
         isLoading = false;
-
-        // Format the response to display list items on separate lines
-        response = response.Replace("1.", "<br>1.")
-                           .Replace("2.", "<br>2.")
-                           .Replace("3.", "<br>3.")
-                           .Replace("4.", "<br>4.")
-                           .Replace("5.", "<br>5.")
-                           .Replace("-", "<br>-");
     }
 
     public static readonly List<Product> products = new List<Product>()
