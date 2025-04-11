@@ -52,10 +52,8 @@ namespace dotnetfashionassistant.Controllers
             if (stock < request.Quantity)
             {
                 return BadRequest($"Not enough stock. Only {stock} items available");
-            }
-
-            // Add to cart
-            CartService.AddToCart(request.ProductId, product.ProductName, request.Size, request.Quantity);
+            }            // Add to cart
+            CartService.AddToCart(request.ProductId, product.ProductName, request.Size, request.Quantity, product.Price);
             
             return Ok(CartService.GetCart());
         }

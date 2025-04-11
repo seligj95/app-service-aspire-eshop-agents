@@ -156,8 +156,7 @@
         // Initial cart count load
         await UpdateCartItemCount();
     }
-    
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+      protected override Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
@@ -168,6 +167,8 @@
                 await InvokeAsync(StateHasChanged);
             }, null, 0, 5000);
         }
+        
+        return Task.CompletedTask;
     }
     
     // This method is called whenever the CartUpdateService triggers an update

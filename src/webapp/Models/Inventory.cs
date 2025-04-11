@@ -6,10 +6,12 @@ namespace dotnetfashionassistant.Models
         public int ProductId { get; set; }
         public required string ProductName { get; set; }
         public Dictionary<string, int> SizeInventory { get; set; }
+        public decimal Price { get; set; }
 
         public InventoryItem()
         {
             SizeInventory = new Dictionary<string, int>();
+            Price = 29.99m; // Default price if not specified
         }
     }
 
@@ -21,12 +23,12 @@ namespace dotnetfashionassistant.Models
         {
             // Create dummy inventory data
             var inventory = new List<InventoryItem>();
-            
-            // Navy Formal Blazer
+              // Navy Formal Blazer
             var blazer = new InventoryItem
             {
                 ProductId = 3,
                 ProductName = "Navy Single-Breasted Slim Fit Formal Blazer",
+                Price = 89.99m,
                 SizeInventory = new Dictionary<string, int>
                 {
                     { "XS", 0 },
@@ -38,12 +40,12 @@ namespace dotnetfashionassistant.Models
                     { "XXXL", 0 }
                 }
             };
-            
-            // White & Navy Blue Shirt
+              // White & Navy Blue Shirt
             var whiteNavyShirt = new InventoryItem
             {
                 ProductId = 111,
                 ProductName = "White & Navy Blue Slim Fit Printed Casual Shirt",
+                Price = 34.99m,
                 SizeInventory = new Dictionary<string, int>
                 {
                     { "XS", 8 },
@@ -55,12 +57,12 @@ namespace dotnetfashionassistant.Models
                     { "XXXL", 4 }
                 }
             };
-            
-            // Red Checked Shirt
+              // Red Checked Shirt
             var redShirt = new InventoryItem
             {
                 ProductId = 116,
                 ProductName = "Red Slim Fit Checked Casual Shirt",
+                Price = 39.99m,
                 SizeInventory = new Dictionary<string, int>
                 {
                     { "XS", 10 },
@@ -72,12 +74,12 @@ namespace dotnetfashionassistant.Models
                     { "XXXL", 5 }
                 }
             };
-            
-            // Navy Blue Denim Jacket
+              // Navy Blue Denim Jacket
             var denimJacket = new InventoryItem
             {
                 ProductId = 10,
                 ProductName = "Navy Blue Washed Denim Jacket",
+                Price = 59.99m,
                 SizeInventory = new Dictionary<string, int>
                 {
                     { "XS", 6 },
