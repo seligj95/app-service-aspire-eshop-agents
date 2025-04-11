@@ -1,0 +1,551 @@
+{
+    "openapi": "3.0.4",
+    "info": {
+        "title": "Fashion Store Inventory API",
+        "description": "API for managing fashion store inventory",
+        "version": "v1"
+    },
+    "servers": [
+        {
+            "url": "<APP-SERVICE-URL>"
+        }
+    ],
+    "paths": {        "/api/Cart": {
+            "get": {
+                "tags": [
+                    "Cart"
+                ],
+                "operationId": "getCartSummary",
+                "summary": "Gets all items in the shopping cart along with the total cost",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CartSummary"
+                                }
+                            }
+                        }
+                    }
+                }
+            },            "delete": {
+                "tags": [
+                    "Cart"
+                ],
+                "operationId": "clearCart",
+                "summary": "Clears all items from the cart",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CartSummary"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },        "/api/Cart/add": {
+            "post": {
+                "tags": [
+                    "Cart"
+                ],
+                "operationId": "addToCart",
+                "summary": "Adds an item to the shopping cart",
+                "requestBody": {
+                    "description": "The item to add to the cart",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AddToCartRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AddToCartRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AddToCartRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CartSummary"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },        "/api/Cart/{productId}/size/{size}": {
+            "put": {
+                "tags": [
+                    "Cart"
+                ],
+                "operationId": "updateCartItemQuantity",
+                "summary": "Updates the quantity of an item in the cart",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "description": "The product ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "path",
+                        "description": "The product size",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "The update quantity request",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateQuantityRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateQuantityRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateQuantityRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CartSummary"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },            "delete": {
+                "tags": [
+                    "Cart"
+                ],
+                "operationId": "removeCartItem",
+                "summary": "Removes an item from the cart",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "description": "The product ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "path",
+                        "description": "The product size",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CartSummary"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },        "/api/Inventory": {
+            "get": {
+                "tags": [
+                    "Inventory"
+                ],
+                "operationId": "getAllInventoryItems",
+                "summary": "Gets all inventory items",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/InventoryItem"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },        "/api/Inventory/{id}": {
+            "get": {
+                "tags": [
+                    "Inventory"
+                ],
+                "operationId": "getInventoryItemById",
+                "summary": "Gets a specific inventory item by product ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The product ID to look up",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InventoryItem"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },        "/api/Inventory/{id}/size/{size}": {
+            "get": {
+                "tags": [
+                    "Inventory"
+                ],
+                "operationId": "getInventorySizeCount",
+                "summary": "Gets inventory count for a specific product and size",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The product ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "path",
+                        "description": "The size to check (e.g., XS, S, M, L, XL, XXL, XXXL)",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SizeInventoryResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },        "/api/Inventory/sizes": {
+            "get": {
+                "tags": [
+                    "Inventory"
+                ],
+                "operationId": "getAllAvailableSizes",
+                "summary": "Gets all available sizes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AddToCartRequest": {
+                "required": [
+                    "size"
+                ],
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "integer",
+                        "description": "The product ID to add to the cart",
+                        "format": "int32"
+                    },
+                    "size": {
+                        "type": "string",
+                        "description": "The size of the product (e.g., XS, S, M, L, XL, XXL, XXXL)",
+                        "nullable": true
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "description": "The quantity to add",
+                        "format": "int32"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "CartItem": {
+                "required": [
+                    "productName",
+                    "size"
+                ],
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "productName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "size": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "price": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "CartSummary": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CartItem"
+                        },
+                        "nullable": true
+                    },
+                    "totalCost": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "InventoryItem": {
+                "required": [
+                    "productName"
+                ],
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "productName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sizeInventory": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer",
+                            "format": "int32"
+                        },
+                        "nullable": true
+                    },
+                    "price": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "ProblemDetails": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "integer",
+                        "format": "int32",
+                        "nullable": true
+                    },
+                    "detail": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "instance": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": {}
+            },
+            "SizeInventoryResponse": {
+                "required": [
+                    "productName",
+                    "size"
+                ],
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "integer",
+                        "description": "The product ID",
+                        "format": "int32"
+                    },
+                    "productName": {
+                        "type": "string",
+                        "description": "The product name",
+                        "nullable": true
+                    },
+                    "size": {
+                        "type": "string",
+                        "description": "The size being queried (e.g., XS, S, M, L, XL, XXL, XXXL)",
+                        "nullable": true
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "The inventory count for the specified product and size",
+                        "format": "int32"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Represents the response for a size inventory query"
+            },
+            "UpdateQuantityRequest": {
+                "type": "object",
+                "properties": {
+                    "quantity": {
+                        "type": "integer",
+                        "description": "The new quantity for the cart item",
+                        "format": "int32"
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "securitySchemas": {}
+    },
+    "security": [
+        {
+            "apiKeyHeader": []
+        }
+    ]
+}
