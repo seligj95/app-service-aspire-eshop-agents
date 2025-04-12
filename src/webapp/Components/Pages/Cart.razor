@@ -342,13 +342,24 @@
             totalCost = 0;
         }
         isLoading = false;
-    }
-
-    private string GetProductImageUrl(int productId)
+    }    private string GetProductImageUrl(int productId)
     {
-        // Use placeholder images based on product ID to give variety
-        return $"https://picsum.photos/seed/{productId}/400/300";
-    }    private decimal CalculateSubtotal()
+        // Map product IDs to specific image files that match the product descriptions
+        switch (productId)
+        {
+            case 3:
+                return "/images/products/navy-blazer.jpeg"; // Navy Single-Breasted Slim Fit Formal Blazer
+            case 111:
+                return "/images/products/white-navy-shirt.jpeg"; // White & Navy Blue Slim Fit Printed Casual Shirt
+            case 116:
+                return "/images/products/red-checked-shirt.jpeg"; // Red Slim Fit Checked Casual Shirt
+            case 10:
+                return "/images/products/denim-jacket.jpeg"; // Navy Blue Washed Denim Jacket
+            default:
+                // Fallback to a placeholder if the product ID is not recognized
+                return $"https://picsum.photos/seed/{productId}/400/228";
+        }
+    }private decimal CalculateSubtotal()
     {
         return cartItems.Sum(item => item.Quantity * item.Price);
     }    private async Task IncreaseQuantity(CartItem item)
