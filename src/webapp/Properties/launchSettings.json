@@ -8,8 +8,7 @@
         "sslPort": 0
       }
     },
-    "profiles": {
-      "http": {
+    "profiles": {      "http": {
         "commandName": "Project",
         "dotnetRunMessages": true,
         "launchBrowser": true,

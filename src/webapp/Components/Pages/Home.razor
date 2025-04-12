@@ -5,56 +5,120 @@
 @using Microsoft.Net.Http.Headers
 @using System.Text
 @using System.Text.Json
+@using dotnetfashionassistant.Models
 @rendermode InteractiveServer
 @inject IHttpClientFactory HttpClientFactory
 @inject IConfiguration configuration
+@inject IJSRuntime JSRuntime
+@inject dotnetfashionassistant.Services.AzureAIAgentService AzureAIAgentService
+@inject dotnetfashionassistant.Services.AgentModeService AgentModeService
 
 <PageTitle>Fashion Store Assistant</PageTitle>
 
 <div class="container">
     <div class="content">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="page-title mb-0">Fashion Store Assistant</h1>
-            <div class="mode-toggle-container">
+            <h1 class="page-title mb-0">Fashion Store Assistant</h1>            <div class="mode-toggle-container">
                 <div class="form-check form-switch mode-toggle">
-                    <input class="form-check-input" type="checkbox" @bind="useAzureAIAgent" id="flexSwitchCheckDefault">
+                    <input class="form-check-input" type="checkbox" @bind="AgentModeValue" id="flexSwitchCheckDefault">
                     <label class="form-check-label fw-bold" for="flexSwitchCheckDefault">
-                        @(useAzureAIAgent ? "Azure AI Agent Mode" : "Phi-3 Sidecar Mode")
+                        @(AgentModeService.UseAzureAIAgent ? "Azure AI Agent Mode" : "Phi-3 Sidecar Mode")
                     </label>
                 </div>
             </div>
-        </div>
+        </div>        @if (AgentModeService.UseAzureAIAgent)
+        {
+            <!-- AI Agent Chat Interface -->
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    @if (chatHistory.Count == 0)
+                    {
+                        <div class="chat-message agent-message">
+                            <div class="message-content">
+                                <p>Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?</p>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var msg in chatHistory)
+                        {
+                            <div class="chat-message @(msg.IsUser ? "user-message" : "agent-message")">
+                                <div class="message-content">
+                                    @if (msg.IsUser)
+                                    {
+                                        <p>@msg.Content</p>
+                                    }
+                                    else
+                                    {
+                                        <p>@((MarkupString)msg.Content)</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
 
-        <div class="form-group">
-            <label for="sltProduct" class="form-label">Select a product</label>
-            <select id="sltProduct" @bind="selectedProduct" class="form-control">
-                <option value="">Please select...</option>
-                @foreach (var product in products)
-                {
-                    <option value="@product.Id">@product.Name</option>
-                }
-            </select>
-        </div>
+                    @if (isLoading)
+                    {
+                        <div class="chat-message agent-message">
+                            <div class="message-content typing-indicator">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
 
-        <div class="form-group">
-            <label for="txtQuery" class="form-label">What would you like to know?</label>
-            <textarea @bind="message" class="form-control" id="txtQuery" rows="3" cols="40"></textarea>
-        </div>
+                <div class="chat-input-container">
+                    <input type="text" 
+                           class="chat-input" 
+                           placeholder="Type your message here..." 
+                           @bind="chatMessage" 
+                           @bind:event="oninput" 
+                           @onkeypress="HandleKeyPress" />
+                    <button class="chat-send-btn" @onclick="SendChatMessage" disabled="@(isLoading || string.IsNullOrWhiteSpace(chatMessage))">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Original Phi-3 Sidecar Interface -->
+            <div class="form-group">
+                <label for="sltProduct" class="form-label">Select a product</label>
+                <select id="sltProduct" @bind="selectedProduct" class="form-control">
+                    <option value="">Please select...</option>
+                    @foreach (var product in products)
+                    {
+                        <option value="@product.Id">@product.Name</option>
+                    }
+                </select>
+            </div>
 
-        <div class="form-group text-end">
-            <button class="btn btn-primary" @onclick="Send" disabled="@isLoading">Send</button>
-        </div>
-    </div>    @if (isLoading)
-    {
-        <div class="spinner-container">
-            <Spinner Color="SpinnerColor.Primary" />
-        </div>
-    }
-    
-    <div class="card mt-3 fixed-card">
-        <div class="card-body fixed-card-body">
-            <p>@((MarkupString)(response ?? ""))</p>
-        </div>
+            <div class="form-group">
+                <label for="txtQuery" class="form-label">What would you like to know?</label>
+                <textarea @bind="message" class="form-control" id="txtQuery" rows="3" cols="40"></textarea>
+            </div>
+
+            <div class="form-group text-end">
+                <button class="btn btn-primary" @onclick="Send" disabled="@isLoading">Send</button>
+            </div>
+            
+            @if (isLoading)
+            {
+                <div class="spinner-container">
+                    <Spinner Color="SpinnerColor.Primary" />
+                </div>
+            }
+            
+            <div class="card mt-3 fixed-card">
+                <div class="card-body fixed-card-body">
+                    <p>@((MarkupString)(response ?? ""))</p>
+                </div>
+            </div>
+        }
     </div>
 </div>
 
@@ -144,15 +208,287 @@
         text-align: left;
         word-wrap: break-word;
     }
+    
+    /* Chat interface styling */
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 60vh;
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .chat-messages {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background-color: #f8f9fa;
+    }
+    
+    .chat-message {
+        display: flex;
+        margin-bottom: 10px;
+    }
+    
+    .user-message {
+        justify-content: flex-end;
+    }
+    
+    .agent-message {
+        justify-content: flex-start;
+    }
+    
+    .message-content {
+        max-width: 70%;
+        padding: 10px 15px;
+        border-radius: 18px;
+        word-wrap: break-word;
+    }
+    
+    .user-message .message-content {
+        background-color: #0d6efd;
+        color: white;
+        border-bottom-right-radius: 5px;
+    }
+    
+    .agent-message .message-content {
+        background-color: #e9ecef;
+        color: #212529;
+        border-bottom-left-radius: 5px;
+    }
+    
+    .message-content p {
+        margin: 0;
+    }
+    
+    .chat-input-container {
+        display: flex;
+        padding: 15px;
+        background-color: white;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .chat-input {
+        flex-grow: 1;
+        padding: 10px 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        outline: none;
+        font-size: 1rem;
+    }
+    
+    .chat-send-btn {
+        width: 40px;
+        height: 40px;
+        border: none;
+        background-color: #0d6efd;
+        color: white;
+        border-radius: 50%;
+        margin-left: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .chat-send-btn:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+    }
+    
+    /* Typing indicator */
+    .typing-indicator {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+    }
+    
+    .typing-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #6c757d;
+        border-radius: 50%;
+        margin: 0 2px;
+        animation: typing-animation 1.4s infinite both;
+    }
+    
+    .typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+      @@keyframes typing-animation {
+        0% {
+            opacity: 0.6;
+            transform: scale(0.8);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        100% {
+            opacity: 0.6;
+            transform: scale(0.8);
+        }
+    }
 </style>
 
 @code {
-    protected readonly IConfiguration? _config;
+    // Property to handle two-way binding with the mode toggle
+    private bool AgentModeValue
+    {
+        get => AgentModeService.UseAzureAIAgent;
+        set
+        {
+            if (AgentModeService.UseAzureAIAgent != value)
+            {
+                AgentModeService.UseAzureAIAgent = value;
+                OnAgentModeChangedAsync().ConfigureAwait(false);
+            }
+        }
+    }
+    
+    // Track changes to AI Agent mode toggle
+    private bool _previousAIAgentState = false;    // Flag to track whether history is being loaded
+    private bool isLoadingHistory = false;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        // Set our initial state from the service
+        _previousAIAgentState = AgentModeService.UseAzureAIAgent;
+        
+        // If we're in AI Agent mode and have a stored thread ID, use it
+        if (AgentModeService.UseAzureAIAgent && !string.IsNullOrEmpty(AgentModeService.CurrentThreadId))
+        {
+            currentThreadId = AgentModeService.CurrentThreadId;
+            
+            // Add a welcome message while history loads
+            if (chatHistory.Count == 0)
+            {
+                chatHistory.Add(new ChatMessage
+                {
+                    Content = "Loading conversation history...",
+                    IsUser = false,
+                    Timestamp = DateTime.Now
+                });
+            }
+        }
+        
+        await base.OnInitializedAsync();
+    }
+      // This will be merged with the existing OnAfterRenderAsync method below
+    
+    // Load chat history asynchronously to avoid blocking page navigation
+    private async Task LoadChatHistoryAsync()
+    {
+        // If we're in AI Agent mode and have a thread ID and haven't started loading history yet
+        if (AgentModeService.UseAzureAIAgent && 
+            !string.IsNullOrEmpty(AgentModeService.CurrentThreadId) && 
+            !isLoadingHistory)
+        {
+            isLoadingHistory = true;
+            
+            try
+            {
+                var history = await AzureAIAgentService.GetThreadHistoryAsync(currentThreadId);
+                
+                // Update the chat history on the UI thread
+                await InvokeAsync(() => {
+                    chatHistory.Clear();
+                    
+                    // If no messages were loaded, add a welcome message
+                    if (history.Count == 0)
+                    {
+                        chatHistory.Add(new ChatMessage
+                        {
+                            Content = "Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?",
+                            IsUser = false,
+                            Timestamp = DateTime.Now
+                        });
+                    }
+                    else
+                    {
+                        // Add loaded history
+                        chatHistory.AddRange(history);
+                    }
+                    
+                    StateHasChanged();
+                });
+            }
+            catch
+            {
+                // If there's an error loading history, show a friendly message
+                await InvokeAsync(() => {
+                    chatHistory.Clear();
+                    chatHistory.Add(new ChatMessage
+                    {
+                        Content = "Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?",
+                        IsUser = false,
+                        Timestamp = DateTime.Now
+                    });
+                    StateHasChanged();
+                });
+            }
+            finally
+            {
+                isLoadingHistory = false;
+            }
+        }
+    }
+    
+    private async Task OnAgentModeChangedAsync()
+    {
+        // Check if mode has changed
+        if (_previousAIAgentState != AgentModeService.UseAzureAIAgent)
+        {
+            // Reset UI elements based on the mode
+            if (AgentModeService.UseAzureAIAgent)
+            {
+                // Switching to AI Agent mode - reset chat
+                if (chatHistory.Count == 0)
+                {
+                    // No need to reset if already empty
+                }
+                else
+                {
+                    // Clear existing chat while keeping mode
+                    chatHistory.Clear();
+                }
+                
+                // Create a new thread if needed
+                if (string.IsNullOrEmpty(currentThreadId))
+                {
+                    currentThreadId = await AzureAIAgentService.CreateThreadAsync();
+                    AgentModeService.CurrentThreadId = currentThreadId;
+                }
+            }
+            else
+            {
+                // Switching to Phi-3 Sidecar mode - reset the form
+                message = null;
+                response = null;
+                selectedProduct = null;
+            }
+            
+            // Update previous state
+            _previousAIAgentState = AgentModeService.UseAzureAIAgent;
+        }
+    }
+    
     private string? message { get; set; }
     private string? response;
     private string? selectedProduct { get; set; }
-    private bool isLoading;
-    private bool useAzureAIAgent = false; // Toggle for AI mode
+    private bool isLoading;// Chat interface properties
+    private string? chatMessage { get; set; }
+    private List<ChatMessage> chatHistory = new List<ChatMessage>();
+    private string? currentThreadId; // Store the agent thread ID for conversation continuity
 
     private async Task Send()
     {
@@ -173,9 +509,7 @@
             response = "Product not found. Please select a different product.";
             isLoading = false;
             return;
-        }
-
-        if (useAzureAIAgent)
+        }        if (AgentModeService.UseAzureAIAgent)
         {
             // Azure AI Agent Service mode (not yet implemented, using placeholder response)
             await Task.Delay(500); // Simulate a brief processing delay
@@ -220,7 +554,7 @@
                 }
             }
             
-            // Format the response to display list items on separate lines
+        // Format the response to display list items on separate lines
             response = response.Replace("1.", "<br>1.")
                               .Replace("2.", "<br>2.")
                               .Replace("3.", "<br>3.")
@@ -230,6 +564,114 @@
         }
         
         isLoading = false;
+    }
+      // Handle AI Agent chat functionality
+    private async Task SendChatMessage()
+    {
+        if (string.IsNullOrWhiteSpace(chatMessage))
+            return;
+            
+        // Add user message to chat history
+        chatHistory.Add(new ChatMessage { 
+            Content = chatMessage, 
+            IsUser = true,
+            Timestamp = DateTime.Now 
+        });
+        
+        string userMessage = chatMessage;
+        chatMessage = string.Empty; // Clear input field
+        isLoading = true;
+        StateHasChanged(); // Update UI to show user message
+        
+        try
+        {
+            // Create a thread if this is the first message
+            if (string.IsNullOrEmpty(currentThreadId))
+            {
+                currentThreadId = await AzureAIAgentService.CreateThreadAsync();
+            }
+            
+            // Send message to Azure AI Agent and get response
+            string aiResponse = await AzureAIAgentService.SendMessageAsync(currentThreadId, userMessage);
+            
+            // Format the response for better HTML display
+            aiResponse = FormatAgentResponse(aiResponse);
+            
+            // Add AI response to chat history
+            chatHistory.Add(new ChatMessage { 
+                Content = aiResponse, 
+                IsUser = false,
+                Timestamp = DateTime.Now 
+            });
+        }
+        catch (Exception ex)
+        {
+            // Handle any errors during AI communication
+            chatHistory.Add(new ChatMessage { 
+                Content = $"Sorry, I encountered an error: {ex.Message}. Please try again later.", 
+                IsUser = false,
+                Timestamp = DateTime.Now 
+            });
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged(); // Update UI with AI response
+            
+            // Scroll to bottom of chat
+            await ScrollToBottom();
+        }
+    }
+    
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(chatMessage) && !isLoading)
+        {
+            await SendChatMessage();
+        }
+    }
+    
+    private string FormatAgentResponse(string response)
+    {
+        // Format the response for better HTML display
+        return response
+            .Replace("\n\n", "<br><br>")
+            .Replace("\n", "<br>")
+            .Replace("•", "<br>•");
+    }
+    
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            // Use JSRuntime to scroll to the bottom of the chat
+            await JSRuntime.InvokeVoidAsync("scrollToBottom", "chatMessages");
+        }
+        catch
+        {
+            // Silently fail if JS interop fails
+        }
+    }
+      protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Register JS function for scrolling
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                window.scrollToBottom = function(elementId) {
+                    var element = document.getElementById(elementId);
+                    if (element) {
+                        element.scrollTop = element.scrollHeight;
+                    }
+                }
+            ");
+            
+            // Load chat history asynchronously after the first render for better performance
+            await LoadChatHistoryAsync();
+        }
+        
+        // Scroll to bottom whenever component rerenders
+        await ScrollToBottom();
     }
 
     public static readonly List<Product> products = new List<Product>()
@@ -246,4 +688,5 @@
 
         public Product GetProduct(int Id) => products.Find(products => products.Id == Id) ?? throw new InvalidOperationException("Product not found");
     }
+      // Removed duplicate ChatMessage class - using dotnetfashionassistant.Models.ChatMessage instead
 }

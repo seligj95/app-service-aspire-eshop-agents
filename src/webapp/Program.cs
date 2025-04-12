@@ -37,6 +37,12 @@ builder.Services.AddBlazorBootstrap();
 // Register CartUpdateService as a singleton so it can be used for cross-component communication
 builder.Services.AddSingleton<dotnetfashionassistant.Services.CartUpdateService>();
 
+// Register the AzureAIAgentService
+builder.Services.AddScoped<dotnetfashionassistant.Services.AzureAIAgentService>();
+
+// Register AgentModeService as a singleton to persist mode state across the application
+builder.Services.AddSingleton<dotnetfashionassistant.Services.AgentModeService>();
+
 // Add HttpContextAccessor to access the current request context
 builder.Services.AddHttpContextAccessor();
 

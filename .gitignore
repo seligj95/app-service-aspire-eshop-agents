@@ -234,7 +234,11 @@ ENV/
 *.bin
 *.pt
 *.pth
+*.safetensors
 model_data/
+models/
+weights/
+checkpoints/
 
 # Azure-specific
 .azure/
