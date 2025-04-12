@@ -29,9 +29,20 @@ namespace dotnetfashionassistant.Services
             _agentId = Environment.GetEnvironmentVariable("AzureAIAgent__AgentId") ?? 
                       _configuration["AzureAIAgent:AgentId"] ?? 
                       throw new InvalidOperationException("Azure AI Agent ID is not configured. Please set the AzureAIAgent__AgentId environment variable or AzureAIAgent:AgentId in appsettings.json");
+              // Initialize the AI Agent client with appropriate credentials
+            // For local development vs. Azure deployment
+            var isRunningInAzure = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME"));
             
-            // Initialize the AI Agent client
-            _client = new AgentsClient(_connectionString, new DefaultAzureCredential());
+            if (isRunningInAzure)
+            {
+                // In Azure, use ManagedIdentityCredential directly to avoid the DefaultAzureCredential fallback chain
+                _client = new AgentsClient(_connectionString, new ManagedIdentityCredential());
+            }
+            else
+            {
+                // For local development, use DefaultAzureCredential (will try multiple methods)
+                _client = new AgentsClient(_connectionString, new DefaultAzureCredential());
+            }
         }
 
         public async Task<string> CreateThreadAsync()
