@@ -10,7 +10,8 @@
             "url": "<APP-SERVICE-URL>"
         }
     ],
-    "paths": {        "/api/Cart": {
+    "paths": {
+        "/api/Cart": {
             "get": {
                 "tags": [
                     "Cart"
@@ -29,7 +30,8 @@
                         }
                     }
                 }
-            },            "delete": {
+            },
+            "delete": {
                 "tags": [
                     "Cart"
                 ],
@@ -48,7 +50,8 @@
                     }
                 }
             }
-        },        "/api/Cart/add": {
+        },
+        "/api/Cart/add": {
             "post": {
                 "tags": [
                     "Cart"
@@ -98,7 +101,8 @@
                     }
                 }
             }
-        },        "/api/Cart/{productId}/size/{size}": {
+        },
+        "/api/Cart/{productId}/size/{size}": {
             "put": {
                 "tags": [
                     "Cart"
@@ -178,7 +182,8 @@
                         }
                     }
                 }
-            },            "delete": {
+            },
+            "delete": {
                 "tags": [
                     "Cart"
                 ],
@@ -228,7 +233,8 @@
                     }
                 }
             }
-        },        "/api/Inventory": {
+        },
+        "/api/Inventory": {
             "get": {
                 "tags": [
                     "Inventory"
@@ -251,7 +257,8 @@
                     }
                 }
             }
-        },        "/api/Inventory/{id}": {
+        },
+        "/api/Inventory/{id}": {
             "get": {
                 "tags": [
                     "Inventory"
@@ -293,7 +300,8 @@
                     }
                 }
             }
-        },        "/api/Inventory/{id}/size/{size}": {
+        },
+        "/api/Inventory/{id}/size/{size}": {
             "get": {
                 "tags": [
                     "Inventory"
@@ -344,7 +352,8 @@
                     }
                 }
             }
-        },        "/api/Inventory/sizes": {
+        },
+        "/api/Inventory/sizes": {
             "get": {
                 "tags": [
                     "Inventory"
@@ -540,12 +549,6 @@
                 },
                 "additionalProperties": false
             }
-        },
-        "securitySchemas": {}
-    },
-    "security": [
-        {
-            "apiKeyHeader": []
         }
-    ]
+    }
 }

@@ -5,9 +5,9 @@
 # To learn more about the azure.yaml file, visit https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/azd-schema
 
 # Name of the application.
-name: quickstart-deploy-aspnet-core-app-service
+name: ai-agent-openapi-web-app
 metadata:
-  template: quickstart-deploy-aspnet-core-app-service@0.0.1-beta
+  template: ai-agent-openapi-web-app@0.0.1-beta
 services:
   web:
     project: ./src/webapp

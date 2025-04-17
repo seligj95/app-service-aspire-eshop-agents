@@ -9,9 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Client for Fashion Assistant API (phi-3 sidecar)
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["FashionAssistantAPI:Url"] ?? "http://localhost:8000/predict") });
-
 // Default HttpClient for cart and inventory API calls
 builder.Services.AddHttpClient("LocalApi", (serviceProvider, client) =>
 {

@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @layout MainLayout
 @using dotnetfashionassistant.Components.Layout;
 @using Microsoft.Extensions.Configuration
@@ -18,107 +18,63 @@
 <div class="container">
     <div class="content">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="page-title mb-0">Fashion Store Assistant</h1>            <div class="mode-toggle-container">
-                <div class="form-check form-switch mode-toggle">
-                    <input class="form-check-input" type="checkbox" @bind="AgentModeValue" id="flexSwitchCheckDefault">
-                    <label class="form-check-label fw-bold" for="flexSwitchCheckDefault">
-                        @(AgentModeService.UseAzureAIAgent ? "Azure AI Agent Mode" : "Phi-3 Sidecar Mode")
-                    </label>
-                </div>
-            </div>
-        </div>        @if (AgentModeService.UseAzureAIAgent)
-        {
-            <!-- AI Agent Chat Interface -->
-            <div class="chat-container">
-                <div class="chat-messages" id="chatMessages">
-                    @if (chatHistory.Count == 0)
+            <h1 class="page-title mb-0">Fashion Store Assistant</h1>
+        </div>
+        
+        <!-- AI Agent Chat Interface -->
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                @if (chatHistory.Count == 0)
+                {
+                    <div class="chat-message agent-message">
+                        <div class="message-content">
+                            <p>Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var msg in chatHistory)
                     {
-                        <div class="chat-message agent-message">
+                        <div class="chat-message @(msg.IsUser ? "user-message" : "agent-message")">
                             <div class="message-content">
-                                <p>Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?</p>
+                                @if (msg.IsUser)
+                                {
+                                    <p>@msg.Content</p>
+                                }
+                                else
+                                {
+                                    <p>@((MarkupString)msg.Content)</p>
+                                }
                             </div>
                         </div>
                     }
-                    else
-                    {
-                        @foreach (var msg in chatHistory)
-                        {
-                            <div class="chat-message @(msg.IsUser ? "user-message" : "agent-message")">
-                                <div class="message-content">
-                                    @if (msg.IsUser)
-                                    {
-                                        <p>@msg.Content</p>
-                                    }
-                                    else
-                                    {
-                                        <p>@((MarkupString)msg.Content)</p>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    }
+                }
 
-                    @if (isLoading)
-                    {
-                        <div class="chat-message agent-message">
-                            <div class="message-content typing-indicator">
-                                <div class="typing-dot"></div>
-                                <div class="typing-dot"></div>
-                                <div class="typing-dot"></div>
-                            </div>
+                @if (isLoading)
+                {
+                    <div class="chat-message agent-message">
+                        <div class="message-content typing-indicator">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
                         </div>
-                    }
-                </div>
-
-                <div class="chat-input-container">
-                    <input type="text" 
-                           class="chat-input" 
-                           placeholder="Type your message here..." 
-                           @bind="chatMessage" 
-                           @bind:event="oninput" 
-                           @onkeypress="HandleKeyPress" />
-                    <button class="chat-send-btn" @onclick="SendChatMessage" disabled="@(isLoading || string.IsNullOrWhiteSpace(chatMessage))">
-                        <i class="bi bi-send-fill"></i>
-                    </button>
-                </div>
-            </div>
-        }
-        else
-        {
-            <!-- Original Phi-3 Sidecar Interface -->
-            <div class="form-group">
-                <label for="sltProduct" class="form-label">Select a product</label>
-                <select id="sltProduct" @bind="selectedProduct" class="form-control">
-                    <option value="">Please select...</option>
-                    @foreach (var product in products)
-                    {
-                        <option value="@product.Id">@product.Name</option>
-                    }
-                </select>
+                    </div>
+                }
             </div>
 
-            <div class="form-group">
-                <label for="txtQuery" class="form-label">What would you like to know?</label>
-                <textarea @bind="message" class="form-control" id="txtQuery" rows="3" cols="40"></textarea>
+            <div class="chat-input-container">
+                <input type="text" 
+                       class="chat-input" 
+                       placeholder="Type your message here..." 
+                       @bind="chatMessage" 
+                       @bind:event="oninput" 
+                       @onkeypress="HandleKeyPress" />
+                <button class="chat-send-btn" @onclick="SendChatMessage" disabled="@(isLoading || string.IsNullOrWhiteSpace(chatMessage))">
+                    <i class="bi bi-send-fill"></i>
+                </button>
             </div>
-
-            <div class="form-group text-end">
-                <button class="btn btn-primary" @onclick="Send" disabled="@isLoading">Send</button>
-            </div>
-            
-            @if (isLoading)
-            {
-                <div class="spinner-container">
-                    <Spinner Color="SpinnerColor.Primary" />
-                </div>
-            }
-            
-            <div class="card mt-3 fixed-card">
-                <div class="card-body fixed-card-body">
-                    <p>@((MarkupString)(response ?? ""))</p>
-                </div>
-            </div>
-        }
+        </div>
     </div>
 </div>
 
@@ -148,67 +104,6 @@
         text-align: left;
     }
 
-    .form-group {
-        margin-bottom: 15px;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .form-label {
-        margin-bottom: 5px;
-        font-weight: bold;
-    }
-
-    .form-control {
-        width: 100%;
-        padding: 10px;
-    }
-
-    /* Mode toggle styling */
-    .mode-toggle-container {
-        padding: 8px 12px;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        border: 1px solid #dee2e6;
-    }
-
-    .mode-toggle .form-check-input {
-        width: 3rem;
-        height: 1.5rem;
-        margin-right: 8px;
-    }
-
-    .mode-toggle .form-check-input:checked {
-        background-color: #0d6efd;
-        border-color: #0d6efd;
-    }
-
-    .mode-toggle .form-check-label {
-        font-size: 1rem;
-        padding-top: 2px;
-    }
-
-    /* Spinner styling */
-    .spinner-container {
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }
-
-    /* Fixed length for card body */
-    .fixed-card {
-        width: 100%;
-        max-width: 600px;
-    }
-
-    .fixed-card-body {
-        max-width: 550px;
-        margin: 0 auto;
-        padding: 15px;
-        text-align: left;
-        word-wrap: break-word;
-    }
-    
     /* Chat interface styling */
     .chat-container {
         display: flex;
@@ -319,12 +214,11 @@
     
     .typing-dot:nth-child(2) {
         animation-delay: 0.2s;
-    }
-    
-    .typing-dot:nth-child(3) {
+    }    .typing-dot:nth-child(3) {
         animation-delay: 0.4s;
     }
-      @@keyframes typing-animation {
+
+    @@keyframes typing-animation {
         0% {
             opacity: 0.6;
             transform: scale(0.8);
@@ -341,31 +235,16 @@
 </style>
 
 @code {
-    // Property to handle two-way binding with the mode toggle
-    private bool AgentModeValue
-    {
-        get => AgentModeService.UseAzureAIAgent;
-        set
-        {
-            if (AgentModeService.UseAzureAIAgent != value)
-            {
-                AgentModeService.UseAzureAIAgent = value;
-                OnAgentModeChangedAsync().ConfigureAwait(false);
-            }
-        }
-    }
-    
-    // Track changes to AI Agent mode toggle
-    private bool _previousAIAgentState = false;    // Flag to track whether history is being loaded
+    private bool isLoading;
+    private string? chatMessage { get; set; }
+    private List<ChatMessage> chatHistory = new List<ChatMessage>();
+    private string? currentThreadId; // Store the agent thread ID for conversation continuity
     private bool isLoadingHistory = false;
     
     protected override async Task OnInitializedAsync()
     {
-        // Set our initial state from the service
-        _previousAIAgentState = AgentModeService.UseAzureAIAgent;
-        
-        // If we're in AI Agent mode and have a stored thread ID, use it
-        if (AgentModeService.UseAzureAIAgent && !string.IsNullOrEmpty(AgentModeService.CurrentThreadId))
+        // If we have a stored thread ID, use it
+        if (!string.IsNullOrEmpty(AgentModeService.CurrentThreadId))
         {
             currentThreadId = AgentModeService.CurrentThreadId;
             
@@ -383,15 +262,12 @@
         
         await base.OnInitializedAsync();
     }
-      // This will be merged with the existing OnAfterRenderAsync method below
     
     // Load chat history asynchronously to avoid blocking page navigation
     private async Task LoadChatHistoryAsync()
     {
-        // If we're in AI Agent mode and have a thread ID and haven't started loading history yet
-        if (AgentModeService.UseAzureAIAgent && 
-            !string.IsNullOrEmpty(AgentModeService.CurrentThreadId) && 
-            !isLoadingHistory)
+        // If we have a thread ID and haven't started loading history yet
+        if (!string.IsNullOrEmpty(currentThreadId) && !isLoadingHistory)
         {
             isLoadingHistory = true;
             
@@ -442,130 +318,8 @@
             }
         }
     }
-    
-    private async Task OnAgentModeChangedAsync()
-    {
-        // Check if mode has changed
-        if (_previousAIAgentState != AgentModeService.UseAzureAIAgent)
-        {
-            // Reset UI elements based on the mode
-            if (AgentModeService.UseAzureAIAgent)
-            {
-                // Switching to AI Agent mode - reset chat
-                if (chatHistory.Count == 0)
-                {
-                    // No need to reset if already empty
-                }
-                else
-                {
-                    // Clear existing chat while keeping mode
-                    chatHistory.Clear();
-                }
-                
-                // Create a new thread if needed
-                if (string.IsNullOrEmpty(currentThreadId))
-                {
-                    currentThreadId = await AzureAIAgentService.CreateThreadAsync();
-                    AgentModeService.CurrentThreadId = currentThreadId;
-                }
-            }
-            else
-            {
-                // Switching to Phi-3 Sidecar mode - reset the form
-                message = null;
-                response = null;
-                selectedProduct = null;
-            }
-            
-            // Update previous state
-            _previousAIAgentState = AgentModeService.UseAzureAIAgent;
-        }
-    }
-    
-    private string? message { get; set; }
-    private string? response;
-    private string? selectedProduct { get; set; }
-    private bool isLoading;// Chat interface properties
-    private string? chatMessage { get; set; }
-    private List<ChatMessage> chatHistory = new List<ChatMessage>();
-    private string? currentThreadId; // Store the agent thread ID for conversation continuity
-
-    private async Task Send()
-    {
-        response = string.Empty;
-        isLoading = true;        if (string.IsNullOrEmpty(selectedProduct))
-        {
-            response = "Please select a product first.";
-            isLoading = false;
-            return;
-        }
-        
-        // Use null-conditional operator to safely handle potential null result
-        Product? selectedItem = products.Find(p => p.Id == int.Parse(selectedProduct));
-        
-        // Check if product was found
-        if (selectedItem == null)
-        {
-            response = "Product not found. Please select a different product.";
-            isLoading = false;
-            return;
-        }        if (AgentModeService.UseAzureAIAgent)
-        {
-            // Azure AI Agent Service mode (not yet implemented, using placeholder response)
-            await Task.Delay(500); // Simulate a brief processing delay
-            response = $"<b>Azure AI Agent Service Response:</b><br><br>I'm analyzing {selectedItem.Name}.<br><br>This feature will be fully implemented soon. For now, I can tell you that this is a high-quality product suitable for various occasions.<br><br>Feel free to ask more specific questions once this mode is fully implemented!";
-        }
-        else
-        {
-            // Original Phi-3 Sidecar mode
-            var request = new HttpRequestMessage(HttpMethod.Post, configuration["FashionAssistantAPI:Url"] ?? throw new InvalidOperationException("FashionAssistantAPI:Url configuration is missing"));
-            request.Headers.Add(HeaderNames.Accept, "application/json");
-            var queryData = new Dictionary<string, string>
-            {
-                {"user_message", message ?? string.Empty},
-                {"product_name", selectedItem.Name},
-                {"product_description", selectedItem.Description }
-            };
-
-            request.Content = new StringContent(JsonSerializer.Serialize(queryData), Encoding.UTF8, "application/json");
-
-            var client = HttpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(120);
-
-            using (HttpResponseMessage responseMessage = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
-            {
-                responseMessage.EnsureSuccessStatusCode();
-
-                if (responseMessage.Content is object)
-                {
-                    using (Stream streamToReadFrom = await responseMessage.Content.ReadAsStreamAsync())
-                    {
-                        using (StreamReader reader = new StreamReader(streamToReadFrom))
-                        {
-                            char[] buffer = new char[8192];
-                            int bytesRead;
-                            while ((bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                            {
-                                response += new string(buffer, 0, bytesRead);
-                                StateHasChanged();
-                            }
-                        }
-                    }
-                }
-            }
-            
-        // Format the response to display list items on separate lines
-            response = response.Replace("1.", "<br>1.")
-                              .Replace("2.", "<br>2.")
-                              .Replace("3.", "<br>3.")
-                              .Replace("4.", "<br>4.")
-                              .Replace("5.", "<br>5.")
-                              .Replace("-", "<br>-");
-        }
-        
-        isLoading = false;
-    }
-      // Handle AI Agent chat functionality
+      
+    // Handle AI Agent chat functionality
     private async Task SendChatMessage()
     {
         if (string.IsNullOrWhiteSpace(chatMessage))
@@ -589,6 +343,7 @@
             if (string.IsNullOrEmpty(currentThreadId))
             {
                 currentThreadId = await AzureAIAgentService.CreateThreadAsync();
+                AgentModeService.CurrentThreadId = currentThreadId;
             }
             
             // Send message to Azure AI Agent and get response
@@ -652,7 +407,8 @@
             // Silently fail if JS interop fails
         }
     }
-      protected override async Task OnAfterRenderAsync(bool firstRender)
+      
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
@@ -680,7 +436,9 @@
         new Product { Id = 111, Name = "White & Navy Blue Slim Fit Printed Casual Shirt", Description = "White and navy blue printed casual shirt, has a spread collar, short sleeves, button placket, curved hem, one patch pocket" },
         new Product { Id = 116, Name = "Red Slim Fit Checked Casual Shirt", Description = "Red checked casual shirt, has a spread collar, long sleeves, button placket, curved hem, one patch pocket" },
         new Product { Id = 10, Name = "Navy Blue Washed Denim Jacket", Description = "Navy Blue washed denim jacket, has a spread collar, 4 pockets, button closure, long sleeves, straight hem, and unlined" }
-    };    public class Product
+    };    
+    
+    public class Product
     {
         public int Id { get; set; }
         public required string Name { get; set; }
@@ -688,5 +446,4 @@
 
         public Product GetProduct(int Id) => products.Find(products => products.Id == Id) ?? throw new InvalidOperationException("Product not found");
     }
-      // Removed duplicate ChatMessage class - using dotnetfashionassistant.Models.ChatMessage instead
 }
