@@ -47,45 +47,56 @@ The application consists of:
    ```
 
    This will:
-   - Build the .NET application
-   - Provision Azure resources defined in the Bicep templates
-   - Deploy the application to Azure App Service
+  - Build the .NET application
+  - Provision Azure resources defined in the Bicep templates
+  - Deploy the application to Azure App Service
 
 At this point, once deployment is complete, you can browse to your app and see the general functionality. Feel free to check out the inventory and add some items to the cart. If you try the chat interface at this point, it will not work and it will prompt you to add the environment variables for the AI Agent.
 
 ## Create the AI Agent Resources
 
-These resouces must be created in the same subscription as the App Service you created. This is because the managed identity used to access the agent from the App Service only has subsciption level permissions.
+You now create the AI Agent resources that your app uses. You first create an Azure AI Foundry hub, and then you create a project in that hub to host your Agent. Note that these resouces must be created in the same subscription as the App Service you created. This is because the managed identity used to access the agent from the App Service only has subsciption level permissions.
+
+### Create the Azure AI hub
 
 1. Sign in to the [Azure portal](https://portal.azure.com).
+2. Go to Azure AI Foundry.
+3. At the top left, click **+ Create** and then **Hub**.
+4. Fill in the required information:
+  - **Subscription**: Select your Azure subscription. Ensure it is the same subscription where your App Service is located.
+  - **Resource group**: Create a new resource group or select an existing one
+  - **Region**: Choose a region where the service is available. Ideally, you should put the agent in the same region as your App Service, but this is not a requirement.
+  - **Name**: Give your hub a unique name.
+  - Leave all remaining information with the provided defaults.
+5. Click **Review + create**, verify the information, then click **Create**.
+6. Once deployment is complete, go to your Azure AI hub resource.
 
-2. Go to **Create a resource** and search for **AI Agent Service**. Select **AI Agent Service** from the search results, then click **Create**.
+### Create the Azure AI project
 
-3. Fill in the required information:
-   - **Subscription**: Select your Azure subscription
-   - **Resource group**: Create a new resource group or select an existing one
-   - **Region**: Choose a region where the service is available
-   - **Name**: Give your AI Agent a unique name
-   - **Pricing tier**: Select the appropriate pricing tier for your needs
+1. Click **+ Create project**.
+2. Fill in the required information:
+  - **Subscription**: Select your Azure subscription. Ensure it is the same subscription where your App Service is located.
+  - **Resource group**: Select the same resource group that your hub was created in.
+  - **Name**: Give your project a unique name.
+  - **Hub**: Ensure the hub is the one you just created.
+  - Leave all remaining information with the provided defaults.
+3. Click **Review + create**, verify the information, then click **Create**.
+4. Once deployment is complete, go to your Azure AI project resource.
 
-4. Click **Review + create**, verify the information, then click **Create**.
+### Create the AI Agent
 
-5. Once deployment is complete, go to your AI Agent Service resource.
+1. Click **Launch stuio** to open the Azure AI Foundry studio.
+2. On the left-hand side under "Build and customize", select **Agents**.
+3. In the dropdown, select the auto-generated Azure OpenAI Service resource that was created for you and the click **Let's go**.
+4. For this sample, we will be using the **gpt-4o-mini model**. Select that one and then **Confirm**.
+5. Keep the default values and click **Deploy**.
+6. Once your agent is created, add the following instructions on the right-hand side. These instructions will ensure your agent only answers questions and completes tasks related to the fashion store app.
 
-6. From the left menu, select **Agents** and click **+ Create** to create a new agent.
-
-7. Enter a name for your agent and select an AI model (GPT-4 recommended for best results).
-
-8. For the agent instructions, use the following:
    ```
    You are an agent for a fashion store that sells clothing. You have the ability to view inventory, update the customer's shopping cart, and answer questions about the clothing items that are in the inventory. You should not answer questions about topics that are unrelated to the fashion store. If a user asks an unrelated question, please respond by telling them you that you can only talk about things that are related to the fashion store.
    ```
 
-9. Click **Next**, add any additional details if needed, then click **Create**.
-
-10. Make note of the **Agent ID** as you'll need this later when configuring the web application.
-
-## Add the OpenAPI Specified Tool to the AI Agent
+### Add the OpenAPI Specified Tool to the AI Agent
 
 1. In the Azure portal, navigate to your AI Agent Service resource.
 
@@ -107,7 +118,7 @@ These resouces must be created in the same subscription as the App Service you c
 
 9. Make note of the **Connection String** for your AI Agent Service as you'll need this for the web application configuration.
 
-## Update App Service Environment Variables
+### Update App Service Environment Variables
 
 After setting up the AI Agent and adding the OpenAPI Specified Tool, you need to configure your App Service with the appropriate environment variables:
 
