@@ -50,6 +50,20 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
 
 // Add resources to be provisioned below.
 
+// Create an App Service Plan to group applications under the same payment plan and SKU
+module appServicePlan './core/host/appserviceplan.bicep' = {
+  name: 'appserviceplan'
+  scope: rg
+  params: {
+    name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
+    location: location
+    tags: tags
+    sku: {
+      name: 'P0v3'
+    }
+  }
+}
+
 // The application App
 module web './core/host/appservice.bicep' = {
   name: 'web'
@@ -64,28 +78,23 @@ module web './core/host/appservice.bicep' = {
   }
 }
 
+// Azure AI Developer role definition ID
+var aiDeveloperRoleId = '64702f94-c441-49e6-a78b-ef80e0188fee'
+
+// Create a unique ID for the role assignment that doesn't depend on runtime values
+var roleAssignmentName = guid(subscription().id, environmentName, aiDeveloperRoleId)
+
 // Assign Azure AI Developer role to the web app's managed identity
 resource azureAIDeveloperRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, web.name, '64702f94-c441-49e6-a78b-ef80e0188fee')
+  name: roleAssignmentName
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '64702f94-c441-49e6-a78b-ef80e0188fee') // Azure AI Developer role
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', aiDeveloperRoleId)
     principalId: web.outputs.identityPrincipalId
     principalType: 'ServicePrincipal'
   }
-}
-
-// Create an App Service Plan to group applications under the same payment plan and SKU
-module appServicePlan './core/host/appserviceplan.bicep' = {
-  name: 'appserviceplan'
-  scope: rg
-  params: {
-    name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
-    location: location
-    tags: tags
-    sku: {
-      name: 'P0v3'
-    }
-  }
+  dependsOn: [
+    web
+  ]
 }
 
 // Add outputs from the deployment here, if needed.
