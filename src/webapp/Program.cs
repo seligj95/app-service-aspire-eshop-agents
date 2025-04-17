@@ -16,17 +16,9 @@ builder.Services.AddHttpClient("LocalApi", (serviceProvider, client) =>
     var httpContextAccessor = serviceProvider.GetRequiredService<IHttpContextAccessor>();
     var request = httpContextAccessor.HttpContext?.Request;
     
-    if (request != null)
-    {
-        // Use the current host as the base address when in production
-        var baseUrl = $"{request.Scheme}://{request.Host}/";
-        client.BaseAddress = new Uri(baseUrl);
-    }
-    else
-    {
-        // Fallback to localhost for development
-        client.BaseAddress = new Uri("http://localhost:5256/");
-    }
+    // Use the current host as the base address
+    var baseUrl = $"{request?.Scheme ?? "https"}://{request?.Host ?? new HostString("localhost")}/";
+    client.BaseAddress = new Uri(baseUrl);
 });
 
 builder.Services.AddBlazorBootstrap();
@@ -69,17 +61,30 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
-}
+app.UseExceptionHandler("/Error", createScopeForErrors: true);
+app.UseHsts();
+app.UseHttpsRedirection();
 
-// Enable Swagger UI in all environments
-app.UseSwagger();
+// Configure Swagger for production use only
+app.UseSwagger(c => 
+{
+    // Dynamically set the server URL based on request
+    c.PreSerializeFilters.Add((swaggerDoc, httpReq) => 
+    {
+        swaggerDoc.Servers = new List<OpenApiServer> 
+        { 
+            new OpenApiServer { Url = $"{httpReq.Scheme}://{httpReq.Host.Value}" } 
+        };
+    });
+});
+
+// Configure Swagger UI for production
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Fashion Store Inventory API v1");
     c.RoutePrefix = "api/docs";
+    c.EnableFilter(); // Add filtering capability
+    c.DisplayRequestDuration(); // Show request timing info
 });
 
 app.UseStaticFiles();
