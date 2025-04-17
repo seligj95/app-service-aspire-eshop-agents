@@ -1,7 +1,10 @@
 using Azure;
 using Azure.AI.Projects;
 using Azure.Identity;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using dotnetfashionassistant.Models;
 using Microsoft.Extensions.Configuration;
@@ -9,51 +12,77 @@ using Microsoft.Extensions.Configuration;
 namespace dotnetfashionassistant.Services
 {    public class AzureAIAgentService
     {
-        private readonly string _connectionString;
-        private readonly AgentsClient _client;
-        private readonly string _agentId;
+        private readonly string? _connectionString;
+        private readonly AgentsClient? _client;
+        private readonly string? _agentId;
         private readonly IConfiguration _configuration;
+        private readonly bool _isConfigured = false;
         
         // Cache for thread history to improve performance when navigating back to home
         private readonly Dictionary<string, List<ChatMessage>> _threadHistoryCache = new();
         private readonly Dictionary<string, DateTime> _lastCacheUpdateTime = new();        public AzureAIAgentService(IConfiguration configuration)
         {
             _configuration = configuration;
-              // First try to get values from environment variables
-            // Then fall back to appsettings.json configuration
             
-            _connectionString = Environment.GetEnvironmentVariable("AzureAIAgent__ConnectionString") ?? 
-                               _configuration["AzureAIAgent:ConnectionString"] ?? 
-                               throw new InvalidOperationException("Azure AI Agent connection string is not configured. Please set the AzureAIAgent__ConnectionString environment variable or AzureAIAgent:ConnectionString in appsettings.json");
+            try
+            {
+                // First try to get values from environment variables
+                // Then fall back to appsettings.json configuration
+                _connectionString = Environment.GetEnvironmentVariable("AzureAIAgent__ConnectionString") ?? 
+                                  _configuration["AzureAIAgent:ConnectionString"];
                                
-            _agentId = Environment.GetEnvironmentVariable("AzureAIAgent__AgentId") ?? 
-                      _configuration["AzureAIAgent:AgentId"] ?? 
-                      throw new InvalidOperationException("Azure AI Agent ID is not configured. Please set the AzureAIAgent__AgentId environment variable or AzureAIAgent:AgentId in appsettings.json");
-              // Initialize the AI Agent client with appropriate credentials
-            // For local development vs. Azure deployment
-            var isRunningInAzure = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME"));
+                _agentId = Environment.GetEnvironmentVariable("AzureAIAgent__AgentId") ?? 
+                         _configuration["AzureAIAgent:AgentId"];
+                
+                // Only initialize the client if both values are available
+                if (!string.IsNullOrEmpty(_connectionString) && !string.IsNullOrEmpty(_agentId))
+                {
+                    // For local development vs. Azure deployment
+                    var isRunningInAzure = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME"));
+                    
+                    if (isRunningInAzure)
+                    {
+                        // In Azure, use ManagedIdentityCredential directly to avoid the DefaultAzureCredential fallback chain
+                        _client = new AgentsClient(_connectionString, new ManagedIdentityCredential());
+                    }
+                    else
+                    {
+                        // For local development, use DefaultAzureCredential (will try multiple methods)
+                        _client = new AgentsClient(_connectionString, new DefaultAzureCredential());
+                    }
+                    
+                    _isConfigured = true;
+                }
+            }
+            catch (Exception)
+            {
+                // Silently fail initialization - service will be in unconfigured state
+                _isConfigured = false;
+            }
+        }        public async Task<string> CreateThreadAsync()
+        {
+            if (!_isConfigured || _client == null)
+            {
+                return "agent-not-configured";
+            }
             
-            if (isRunningInAzure)
+            try
             {
-                // In Azure, use ManagedIdentityCredential directly to avoid the DefaultAzureCredential fallback chain
-                _client = new AgentsClient(_connectionString, new ManagedIdentityCredential());
+                Response<AgentThread> threadResponse = await _client.CreateThreadAsync();
+                AgentThread thread = threadResponse.Value;
+                return thread.Id;
             }
-            else
+            catch (Exception)
             {
-                // For local development, use DefaultAzureCredential (will try multiple methods)
-                _client = new AgentsClient(_connectionString, new DefaultAzureCredential());
+                return "agent-not-configured";
             }
-        }
-
-        public async Task<string> CreateThreadAsync()
+        }        public async Task<string> SendMessageAsync(string threadId, string userMessage)
         {
-            Response<AgentThread> threadResponse = await _client.CreateThreadAsync();
-            AgentThread thread = threadResponse.Value;
-            return thread.Id;
-        }
-
-        public async Task<string> SendMessageAsync(string threadId, string userMessage)
-        {
+            if (!_isConfigured || _client == null || _agentId == null || threadId == "agent-not-configured")
+            {
+                return "The AI agent is not properly configured. Please add the required environment variables (AzureAIAgent__ConnectionString and AzureAIAgent__AgentId) in your application settings.";
+            }
+            
             try
             {
                 // Send user message to the thread
@@ -73,14 +102,16 @@ namespace dotnetfashionassistant.Services
                 do
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(500));
-                    runResponse = await _client.GetRunAsync(threadId, runResponse.Value.Id);
+                    runResponse = await _client.GetRunAsync(threadId, run.Id);
                 }
                 while (runResponse.Value.Status == RunStatus.Queued
                     || runResponse.Value.Status == RunStatus.InProgress);
 
                 // Get all messages in the thread
                 Response<PageableList<ThreadMessage>> messagesResponse = await _client.GetMessagesAsync(threadId);
-                IReadOnlyList<ThreadMessage> messages = messagesResponse.Value.Data;                // Get the latest assistant message (using historical convention of "assistant" role)
+                IReadOnlyList<ThreadMessage> messages = messagesResponse.Value.Data;
+                
+                // Get the latest assistant message (using historical convention of "assistant" role)
                 ThreadMessage? latestAssistantMessage = messages
                     .Where(m => m.Role.ToString().Equals("Assistant", StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(m => m.CreatedAt)
@@ -107,6 +138,17 @@ namespace dotnetfashionassistant.Services
             }
         }        public async Task<List<ChatMessage>> GetThreadHistoryAsync(string threadId)
         {
+            if (!_isConfigured || _client == null || threadId == "agent-not-configured")
+            {
+                return new List<ChatMessage> {
+                    new ChatMessage {
+                        Content = "The AI agent is not properly configured. Please add the required environment variables (AzureAIAgent__ConnectionString and AzureAIAgent__AgentId) in your application settings.",
+                        IsUser = false,
+                        Timestamp = DateTime.Now
+                    }
+                };
+            }
+            
             // Check if we already have this thread history cached and it's recent (less than 1 minute old)
             if (_threadHistoryCache.TryGetValue(threadId, out var cachedHistory) && 
                 _lastCacheUpdateTime.TryGetValue(threadId, out var lastUpdate) &&
@@ -133,7 +175,7 @@ namespace dotnetfashionassistant.Services
                     {
                         if (contentItem is MessageTextContent textItem)
                         {
-                            messageContent += textItem.Text;
+                            messageContent += textItem.Text ?? string.Empty;
                         }
                     }
                     
