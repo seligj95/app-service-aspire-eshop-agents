@@ -64,6 +64,16 @@ module web './core/host/appservice.bicep' = {
   }
 }
 
+// Assign Azure AI Developer role to the web app's managed identity
+resource azureAIDeveloperRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(subscription().id, web.name, '64702f94-c441-49e6-a78b-ef80e0188fee')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '64702f94-c441-49e6-a78b-ef80e0188fee') // Azure AI Developer role
+    principalId: web.outputs.identityPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Create an App Service Plan to group applications under the same payment plan and SKU
 module appServicePlan './core/host/appserviceplan.bicep' = {
   name: 'appserviceplan'
