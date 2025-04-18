@@ -92,51 +92,43 @@ You now create the AI Agent resources that your app uses. You first create an Az
 5. Keep the default values and click **Deploy**.
 6. Once your agent is created, add the following instructions on the right-hand side. These instructions will ensure your agent only answers questions and completes tasks related to the fashion store app.
 
-   ```
+  ```
    You are an agent for a fashion store that sells clothing. You have the ability to view inventory, update the customer's shopping cart, and answer questions about the clothing items that are in the inventory. You should not answer questions about topics that are unrelated to the fashion store. If a user asks an unrelated question, please respond by telling them you that you can only talk about things that are related to the fashion store.
-   ```
+  ```
 
 ### Add the OpenAPI Specified Tool to the AI Agent
 
-1. In the Azure portal, navigate to your AI Agent Service resource.
+For detailed guidance with screenshots, see [Add OpenAPI spec tool in the Azure AI Foundry portal](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec?tabs=python&pivots=overview#add-openapi-spec-tool-in-the-azure-ai-foundry-portal). The steps will be summarized below.
 
-2. Select the agent you created in the previous step.
+1. Click **+ Add** next to **Action**.
+2. Select **OpenAPI 3.0 specified tool**.
+3. Give your tool a name (required) and a description (optional). The description will be used by the model to decide when and how to use the tool. For this sample, you can use the following description:
 
-3. From the left menu, select **Tools** and click **+ Add**.
+  ```
+  This tool is used to interact with and manage an online fashion store. The tool can add or remove items from a shopping cart as well as view inventory.
+  ```
 
-4. Select **OpenAPI Specified** as the tool type.
-
-5. Name your tool (for example, "FashionStoreInventoryAPI").
-
-6. For the OpenAPI specification, you have two options:
-   - **URL**: After deploying your App Service, use the URL of your swagger.json file (`https://{your-app-service-url}/swagger/v1/swagger.json`)
-   - **File Upload**: You can upload the swagger.json file from your project
-
-7. If your API requires authentication, configure the appropriate authentication method.
-
-8. Click **Add** to add the tool to your agent.
-
-9. Make note of the **Connection String** for your AI Agent Service as you'll need this for the web application configuration.
+4. Leave the authentication method as anonymous. There is no authentication on the web app. If the app required an API key or managed identity to access it, this is where you would specify this information.
+5. Copy and paste your OpenAPI specification in the text box. The OpenAPI specification is provided in this repo and is called [swagger.json](./src/webapp/swagger.json). 
+6. Before you create the tool, you need to copy and paste you app's URL into the OpenAPI specification you are providing to the tool. Replace the placeholder `<APP-SERVICE-URL>` with your app's URL. It should be in the format `https://<app-name>.azurewebsites.net`.
+7. Click **Next**, review the details your provided, and then click **Create Tool**.
 
 ### Update App Service Environment Variables
 
-After setting up the AI Agent and adding the OpenAPI Specified Tool, you need to configure your App Service with the appropriate environment variables:
+After setting up the AI Agent and adding the OpenAPI Specified Tool, you need to configure your App Service with the appropriate environment variables.
 
-1. In the Azure portal, navigate to your deployed App Service.
-
-2. From the left menu, select **Configuration**.
-
-3. In the **Application settings** tab, click **+ New application setting** and add the following settings:
-   - **Name**: `AzureAIAgent__ConnectionString`
-   - **Value**: The connection string you noted from your AI Agent Service
-
-4. Add another application setting:
-   - **Name**: `AzureAIAgent__AgentId`
-   - **Value**: The Agent ID you noted when creating your agent
-
-5. Click **Save** at the top of the page and confirm when prompted.
-
-6. The app will restart with the new settings applied.
+1. From the Agents dashboard where you just added your tool, note the agent ID. It should be in the format `asst_<unique-id>`.
+2. Click **Overview** on the left-hand side and note the project's connection string. It should be in the format `<region>.api.azureml.ms;<subscription-id>;<resource-group-name>;<project-name>`.
+3. Navigate back to your App Service.
+4. From the left menu, select **Environment variables**.
+5. In the **App settings** tab, click **+ Add** and add the following settings:
+  - **Name**: `AzureAIAgent__ConnectionString`
+  - **Value**: The connection string you noted from your AI Agent Service
+6. Add another app setting:
+  - **Name**: `AzureAIAgent__AgentId`
+  - **Value**: The Agent ID you noted when creating your agent
+7. Click **Apply** at the bottom of the page and confirm when prompted.
+8. The app will restart with the new settings applied.
 
 ## Use the app
 
