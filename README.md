@@ -1,6 +1,6 @@
 # Fashion Assistant Web App on Azure App Service with Azure AI Agent and OpenAPI Specified Tool
 
-This sample contains a .NET Blazor web application that uses Azure AI Agents to create an interactive fashion shopping experience. The application demonstrates how to connect a web app to an Azure AI Agent from the [Azure AI Agent Service](https://learn.microsoft.com/azure/ai-services/agents/overview). The agent is given the OpenAPI spec for the web app so that it can handle product recommendations, shopping assistance, and shopping cart management, and more on your behalf via a chat interface. This sample builds off of the guidance documented by the AI Agent Service in [How to use Azure AI Agent Service with OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec?tabs=python&pivots=overview).
+This sample contains a .NET Blazor web application that uses Azure AI Agents to create an interactive fashion shopping experience. The application demonstrates how to connect a web app to an Azure AI Agent from the [Azure AI Agent Service](https://learn.microsoft.com/azure/ai-services/agents/overview). The agent is given the OpenAPI spec for the web app so that it can handle product recommendations, shopping assistance, shopping cart management and more on your behalf via a chat interface. This sample builds off of the guidance documented by the AI Agent Service in [How to use Azure AI Agent Service with OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec?tabs=python&pivots=overview).
 
 ## Features
 
@@ -16,7 +16,7 @@ The application consists of:
 - A .NET 8 Blazor web application frontend 
 - Azure AI Agent integration for intelligent shopping assistance
 - RESTful APIs for shopping cart management
-- Azure App Service deployment infrastructure using Bicep and azd template
+- Azure App Service and Azure AI Foundry infrastructure using Bicep and azd template
 
 ## Prerequisites
 
@@ -53,47 +53,21 @@ The application consists of:
 
 At this point, once deployment is complete, you can browse to your app and see the general functionality. Feel free to check out the inventory and add some items to the cart. If you try the chat interface at this point, it will not work and it will prompt you to add the environment variables for the AI Agent.
 
-## Create the AI Agent Resources
+## Create the AI Agent
 
-You now create the AI Agent resources that your app uses. You first create an Azure AI Foundry hub, and then you create a project in that hub to host your Agent. Note that these resouces must be created in the same subscription as the App Service you created. This is because the managed identity used to access the agent from the App Service only has subsciption level permissions.
+You now create the AI Agent that your app uses. The Azure AI Foundry resources were created as part of the azd template. You need to create the agent and connect that agent to your App Service.
 
-### Create the Azure AI hub
-
-1. Sign in to the [Azure portal](https://portal.azure.com).
-2. Go to Azure AI Foundry.
-3. At the top left, click **+ Create** and then **Hub**.
-4. Fill in the required information:
-  - **Subscription**: Select your Azure subscription. Ensure it is the same subscription where your App Service is located.
-  - **Resource group**: Create a new resource group or select an existing one
-  - **Region**: Choose a region where the service is available. Ideally, you should put the agent in the same region as your App Service, but this is not a requirement.
-  - **Name**: Give your hub a unique name.
-  - Leave all remaining information with the provided defaults.
-5. Click **Review + create**, verify the information, then click **Create**.
-6. Once deployment is complete, go to your Azure AI hub resource.
-
-### Create the Azure AI project
-
-1. Click **+ Create project**.
-2. Fill in the required information:
-  - **Subscription**: Select your Azure subscription. Ensure it is the same subscription where your App Service is located.
-  - **Resource group**: Select the same resource group that your hub was created in.
-  - **Name**: Give your project a unique name.
-  - **Hub**: Ensure the hub is the one you just created.
-  - Leave all remaining information with the provided defaults.
-3. Click **Review + create**, verify the information, then click **Create**.
-4. Once deployment is complete, go to your Azure AI project resource.
-
-### Create the AI Agent
-
-1. Click **Launch stuio** to open the Azure AI Foundry studio.
-2. On the left-hand side under "Build and customize", select **Agents**.
-3. In the dropdown, select the auto-generated Azure OpenAI Service resource that was created for you and the click **Let's go**.
-4. For this sample, we will be using the **gpt-4o-mini model**. Select that one and then **Confirm**.
-5. Keep the default values and click **Deploy**.
-6. Once your agent is created, add the following instructions on the right-hand side. These instructions will ensure your agent only answers questions and completes tasks related to the fashion store app.
+1. Sign in to the [Azure portal](https://portal.azure.com) and go to the resource group that was created by the azd template.
+2. Click the **Azure AI project** resource that was created for you.
+3. Click **Launch studio** to open the Azure AI Foundry studio.
+4. On the left-hand side under "Build and customize", select **Agents**.
+5. In the dropdown, select the auto-generated Azure OpenAI Service resource that was created for you and then click **Let's go**.
+6. Click **+ New agent** to create a new agent.
+7. Follow the prompts to configure your agent with a name and model.
+8. Once your agent is created, add the following instructions on the right-hand side. These instructions will ensure your agent only answers questions and completes tasks related to the fashion store app.
 
   ```
-  You are an agent for a fashion store that sells clothing. You have the ability to view inventory, update the customer's shopping cart, and answer questions about the clothing items that are in the inventory. You should not answer questions about topics that are unrelated to the fashion store. If a user asks an unrelated question, please respond by telling them you that you can only talk about things that are related to the fashion store.
+  You are an agent for a fashion store that sells clothing. You have the ability to view inventory, update the customer's shopping cart, and answer questions about the clothing items that are in the inventory. You should not answer questions about topics that are unrelated to the fashion store. If a user asks an unrelated question, please respond by telling them that you can only talk about things that are related to the fashion store.
   ```
 
 ### Add the OpenAPI Specified Tool to the AI Agent
@@ -102,7 +76,7 @@ For detailed guidance with screenshots, see [Add OpenAPI spec tool in the Azure 
 
 1. Click **+ Add** next to **Action**.
 2. Select **OpenAPI 3.0 specified tool**.
-3. Give your tool a name (required) and a description (optional). The description will be used by the model to decide when and how to use the tool. For this sample, you can use the following description:
+3. Give your tool a name and a description. The description will be used by the model to decide when and how to use the tool. For this sample, you can use the following description:
 
   ```
   This tool is used to interact with and manage an online fashion store. The tool can add or remove items from a shopping cart as well as view inventory.
@@ -110,8 +84,8 @@ For detailed guidance with screenshots, see [Add OpenAPI spec tool in the Azure 
 
 4. Leave the authentication method as anonymous. There is no authentication on the web app. If the app required an API key or managed identity to access it, this is where you would specify this information.
 5. Copy and paste your OpenAPI specification in the text box. The OpenAPI specification is provided in this repo and is called [swagger.json](./src/webapp/swagger.json). 
-6. Before you create the tool, you need to copy and paste you app's URL into the OpenAPI specification you are providing to the tool. Replace the placeholder `<APP-SERVICE-URL>` with your app's URL. It should be in the format `https://<app-name>.azurewebsites.net`.
-7. Click **Next**, review the details your provided, and then click **Create Tool**.
+6. Before you create the tool, you need to copy and paste your app's URL into the OpenAPI specification you are providing to the tool. Replace the placeholder `<APP-SERVICE-URL>` with your app's URL. It should be in the format `https://<app-name>.azurewebsites.net`.
+7. Click **Next**, review the details you provided, and then click **Create Tool**.
 
 ### Update App Service Environment Variables
 
@@ -161,7 +135,7 @@ You also need to delete the AI Agent Service and associated resources. If you cr
    - Verify that the environment variables (`AzureAIAgent__ConnectionString` and `AzureAIAgent__AgentId`) are correctly set in the App Service configuration.
    - Check that the AI Agent was properly created and configured with the correct OpenAPI tool.
    - Ensure the OpenAPI specification URL is accessible from the Azure AI Agent Service.
-   - Ensure the App Service URL is updated in the `swaggger.json` provided to the OpenAPI Specified Tool.
+   - Ensure the App Service URL is updated in the `swagger.json` provided to the OpenAPI Specified Tool.
 
 2. **Permission Issues**
    - If you encounter authentication errors, ensure that your App Service's managed identity has proper permissions to access the Azure AI Agent Service. The managed identity needs at least the `Microsoft.MachineLearningServices/workspaces/agents/action` permission to interact with the Agent. The provided Azure AI Developer role has this permission and should be sufficient. If you decide to change this role, be sure it has the necessary permission.
