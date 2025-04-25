@@ -257,19 +257,19 @@ resource cognitiveServicesUserRoleAssignment 'Microsoft.Authorization/roleAssign
 }
 
 // 8. Web App access to AI Project (optional)
-resource contributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = if (!empty(webAppPrincipalId)) {
-  name: 'b24988ac-6180-42a0-ab88-20f7382dd24c'  // Contributor
-  scope: subscription()
-}
+// resource contributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = if (!empty(webAppPrincipalId)) {
+//   name: 'b24988ac-6180-42a0-ab88-20f7382dd24c'  // Contributor
+//   scope: subscription()
+// }
 
-resource webAppAIProjectRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(webAppPrincipalId)) {
-  name: guid(subscription().id, aiProject.id, webAppPrincipalId, 'contributor')
-  properties: {
-    principalId: webAppPrincipalId
-    roleDefinitionId: contributorRoleDefinition.id
-    principalType: 'ServicePrincipal'
-  }
-}
+// resource webAppAIProjectRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(webAppPrincipalId)) {
+//   name: guid(subscription().id, aiProject.id, webAppPrincipalId, 'contributor')
+//   properties: {
+//     principalId: webAppPrincipalId
+//     roleDefinitionId: contributorRoleDefinition.id
+//     principalType: 'ServicePrincipal'
+//   }
+// }
 
 // OUTPUTS
 output projectConnectionString string = projectConnectionString

@@ -62,9 +62,8 @@ You now create the AI Agent that your app uses. The Azure AI Foundry resources w
 3. Click **Launch studio** to open the Azure AI Foundry studio.
 4. On the left-hand side under "Build and customize", select **Agents**.
 5. In the dropdown, select the auto-generated Azure OpenAI Service resource that was created for you and then click **Let's go**.
-6. Click **+ New agent** to create a new agent.
-7. Follow the prompts to configure your agent with a name and model.
-8. Once your agent is created, add the following instructions on the right-hand side. These instructions will ensure your agent only answers questions and completes tasks related to the fashion store app.
+6. Click **+ New agent** to create a new agent or use the default one if one is already created for you.
+7. Once your agent is created, add the following instructions on the right-hand side. These instructions will ensure your agent only answers questions and completes tasks related to the fashion store app.
 
   ```
   You are an agent for a fashion store that sells clothing. You have the ability to view inventory, update the customer's shopping cart, and answer questions about the clothing items that are in the inventory. You should not answer questions about topics that are unrelated to the fashion store. If a user asks an unrelated question, please respond by telling them that you can only talk about things that are related to the fashion store.
