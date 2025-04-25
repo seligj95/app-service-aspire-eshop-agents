@@ -124,8 +124,6 @@ When you're done with this app, run the following to delete the App Service reso
    azd down
    ```
 
-You also need to delete the AI Agent Service and associated resources. If you created all of these resources in a single resource group, deleting that resource group will delete these resources.
-
 ## Troubleshooting
 
 ### Common Issues
@@ -182,7 +180,6 @@ Beyond basic interactions, the AI agent can handle more complex scenarios:
 ## Security Considerations
 
 - The application uses Azure managed identities for secure authentication to Azure AI Agent Service in production environments.
-- For local development, DefaultAzureCredential is used, which tries multiple authentication methods.
 - No sensitive credentials are stored in the code.
 
 ## License
