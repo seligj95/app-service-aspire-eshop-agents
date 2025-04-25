@@ -22,6 +22,21 @@ param resourceGroupName string = ''
 param appServiceName string = ''
 param appServicePlanName string = ''
 
+// AI Foundry parameters
+param aiHubName string = 'aihub'
+param aiHubFriendlyName string = 'AI Hub for Agent'
+param aiHubDescription string = 'A hub resource required for the AI agent setup.'
+param aiProjectName string = 'aiproject'
+param aiProjectFriendlyName string = 'AI Project for Agent'
+param aiProjectDescription string = 'A project resource required for the AI agent setup.'
+param aiModelName string = 'gpt-4o-mini'
+param aiModelFormat string = 'OpenAI'
+param aiModelVersion string = '2024-07-18'
+param aiModelSkuName string = 'DataZoneStandard'
+param aiModelCapacity int = 50
+param aiModelLocation string = ''
+param aiServiceKind string = 'AIServices'
+
 var abbrs = loadJsonContent('./abbreviations.json')
 
 // tags that should be applied to all resources.
@@ -31,9 +46,12 @@ var tags = {
 }
 
 // Generate a unique token to be used in naming resources.
-// Remove linter suppression after using.
-#disable-next-line no-unused-vars
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
+
+// Generate resource names for AI Foundry
+var aiStorageAccountName = 'aistg${take(replace(resourceToken, '-', ''), 16)}'
+var aiServicesAccountName = 'aisvc-${resourceToken}'
+var aiKeyVaultName = 'aikv-${resourceToken}'
 
 // Name of the service defined in azure.yaml
 // A tag named azd-service-name with this value should be applied to the service host resource, such as:
@@ -92,9 +110,36 @@ resource azureAIDeveloperRoleAssignment 'Microsoft.Authorization/roleAssignments
     principalId: web.outputs.identityPrincipalId
     principalType: 'ServicePrincipal'
   }
-  dependsOn: [
-    web
-  ]
+}
+
+// Deploy the AI Foundry resources using the module
+module aifoundry './core/ai/aifoundry.bicep' = {
+  name: 'aifoundry'
+  scope: rg
+  params: {
+    aiHubName: aiHubName
+    aiHubFriendlyName: aiHubFriendlyName
+    aiHubDescription: aiHubDescription
+    aiProjectName: aiProjectName
+    aiProjectFriendlyName: aiProjectFriendlyName
+    aiProjectDescription: aiProjectDescription
+    location: location
+    tags: tags
+    modelName: aiModelName
+    modelFormat: aiModelFormat
+    modelVersion: aiModelVersion
+    modelSkuName: aiModelSkuName
+    modelCapacity: aiModelCapacity
+    modelLocation: aiModelLocation
+    aiServiceKind: aiServiceKind
+    storageAccountName: aiStorageAccountName
+    aiServicesName: aiServicesAccountName
+    keyVaultName: aiKeyVaultName
+    resourceToken: resourceToken
+    subscriptionId: subscription().subscriptionId
+    rgName: rg.name
+    webAppPrincipalId: web.outputs.identityPrincipalId
+  }
 }
 
 // Add outputs from the deployment here, if needed.
