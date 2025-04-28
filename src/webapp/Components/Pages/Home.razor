@@ -12,13 +12,15 @@
 @inject IJSRuntime JSRuntime
 @inject dotnetfashionassistant.Services.AzureAIAgentService AzureAIAgentService
 @inject dotnetfashionassistant.Services.AgentModeService AgentModeService
-
-<PageTitle>Fashion Store Assistant</PageTitle>
+@inject dotnetfashionassistant.Services.CartUpdateService CartUpdateService
 
 <div class="container">
-    <div class="content">
+    <div class="content">        
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="page-title mb-0">Fashion Store Assistant</h1>
+            <button class="btn btn-outline-primary" @onclick="StartNewConversation">
+                <i class="bi bi-plus-circle me-2"></i>New Conversation
+            </button>
         </div>
         
         <!-- AI Agent Chat Interface -->
@@ -37,14 +39,13 @@
                     @foreach (var msg in chatHistory)
                     {
                         <div class="chat-message @(msg.IsUser ? "user-message" : "agent-message")">
-                            <div class="message-content">
-                                @if (msg.IsUser)
+                            <div class="message-content">                                @if (msg.IsUser)
                                 {
                                     <p>@msg.Content</p>
                                 }
                                 else
                                 {
-                                    <p>@((MarkupString)msg.Content)</p>
+                                    <p>@((MarkupString)(!string.IsNullOrEmpty(msg.FormattedContent) ? msg.FormattedContent : msg.Content))</p>
                                 }
                             </div>
                         </div>
@@ -316,7 +317,30 @@
             {
                 isLoadingHistory = false;
             }
-        }
+        }    }
+      // Start a new conversation by clearing the current thread ID and resetting the chat
+    private void StartNewConversation()
+    {
+        // Clear the current thread ID
+        currentThreadId = null;
+        AgentModeService.CurrentThreadId = null;
+        
+        // Reset the chat history
+        chatHistory.Clear();
+        
+        // Add a welcome message
+        chatHistory.Add(new ChatMessage
+        {
+            Content = "Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?",
+            IsUser = false,
+            Timestamp = DateTime.Now
+        });
+        
+        // Update the UI
+        StateHasChanged();
+        
+        // Clear any cached data for the previous thread
+        isLoadingHistory = false;
     }
       
     // Handle AI Agent chat functionality
@@ -345,19 +369,30 @@
                 currentThreadId = await AzureAIAgentService.CreateThreadAsync();
                 AgentModeService.CurrentThreadId = currentThreadId;
             }
-            
-            // Send message to Azure AI Agent and get response
+              // Send message to Azure AI Agent and get response
             string aiResponse = await AzureAIAgentService.SendMessageAsync(currentThreadId, userMessage);
             
             // Format the response for better HTML display
-            aiResponse = FormatAgentResponse(aiResponse);
+            string formattedResponse = FormatAgentResponse(aiResponse);
             
             // Add AI response to chat history
             chatHistory.Add(new ChatMessage { 
-                Content = aiResponse, 
+                Content = aiResponse,
+                FormattedContent = formattedResponse,
                 IsUser = false,
                 Timestamp = DateTime.Now 
             });
+            
+            // Check if the response mentions adding items to cart
+            if (aiResponse.Contains("added to your cart") || 
+                aiResponse.Contains("been added to your cart") || 
+                aiResponse.Contains("Added to cart") ||
+                aiResponse.Contains("item to your cart") ||
+                aiResponse.Contains("items to your cart"))
+            {
+                // Update the cart counter if items were added
+                await UpdateCartCounterAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -384,15 +419,51 @@
         {
             await SendChatMessage();
         }
-    }
-    
-    private string FormatAgentResponse(string response)
+    }    private string FormatAgentResponse(string response)
     {
         // Format the response for better HTML display
+        
+        // Handle markdown-style bold text (convert **text** to <strong>text</strong>)
+        response = System.Text.RegularExpressions.Regex.Replace(
+            response, 
+            @"\*\*([^*]+)\*\*", 
+            "<strong>$1</strong>");
+            
+        // Handle line breaks and bullet points
         return response
             .Replace("\n\n", "<br><br>")
             .Replace("\n", "<br>")
             .Replace("•", "<br>•");
+    }
+    
+    // Method to update the cart counter by fetching the current cart and updating the badge
+    private async Task UpdateCartCounterAsync()
+    {
+        try
+        {
+            // Create a client for API calls
+            var client = HttpClientFactory.CreateClient("LocalApi");
+            
+            // Get the current cart data
+            var cartSummary = await client.GetFromJsonAsync<CartSummary>("api/Cart");
+            
+            if (cartSummary != null)
+            {
+                // Calculate total number of items in cart
+                int totalItems = cartSummary.Items.Sum(item => item.Quantity);
+                
+                // Update the cart badge using JavaScript interop
+                await JSRuntime.InvokeVoidAsync("updateCartBadge", totalItems);
+                
+                // Notify other components that cart has been updated
+                CartUpdateService.NotifyCartUpdated();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Silently handle errors - we don't want to disturb the chat experience if cart update fails
+            Console.WriteLine($"Error updating cart counter: {ex.Message}");
+        }
     }
     
     private async Task ScrollToBottom()

@@ -29,21 +29,26 @@ namespace dotnetfashionassistant.Services
         private readonly ConcurrentDictionary<string, DateTime> _lastCacheUpdateTime = new();public AzureAIAgentService(IConfiguration configuration, ILogger<AzureAIAgentService> logger)
         {
             _configuration = configuration;
-            _logger = logger;
-            
-        // Get configuration values from environment variables (App Service configuration)
-            _connectionString = Environment.GetEnvironmentVariable("AzureAIAgent__ConnectionString");
-            _agentId = Environment.GetEnvironmentVariable("AzureAIAgent__AgentId");
+            _logger = logger;            // Get configuration values from environment variables (App Service configuration)
+            // Try both double and single underscore naming conventions for compatibility
+            var doubleUnderscoreConn = Environment.GetEnvironmentVariable("AzureAIAgent__ConnectionString");
+            var singleUnderscoreConn = Environment.GetEnvironmentVariable("AzureAIAgent_ConnectionString");
+            var doubleUnderscoreId = Environment.GetEnvironmentVariable("AzureAIAgent__AgentId");
+            var singleUnderscoreId = Environment.GetEnvironmentVariable("AzureAIAgent_AgentId");
+              // Only log a single line with key information about configuration
+            _connectionString = doubleUnderscoreConn ?? singleUnderscoreConn;
+            _agentId = doubleUnderscoreId ?? singleUnderscoreId;
             
             _isConfigured = !string.IsNullOrEmpty(_connectionString) && !string.IsNullOrEmpty(_agentId);
             
             if (!_isConfigured)
             {
-                _logger.LogWarning("Azure AI Agent is not properly configured. Missing connection string or agent ID.");
+                _logger.LogWarning("Azure AI Agent configuration missing: ConnectionString={0}, AgentId={1}", 
+                    !string.IsNullOrEmpty(_connectionString), 
+                    !string.IsNullOrEmpty(_agentId));
             }
         }
-        
-        // Lazy initialization of the client only when actually needed
+          // Lazy initialization of the client only when actually needed
         private void EnsureInitialized()
         {
             if (_isInitialized || !_isConfigured)
@@ -55,12 +60,8 @@ namespace dotnetfashionassistant.Services
                     return;
                       try
                 {
-                    _logger.LogInformation("Initializing AI Agent client");
-                    
                     // Use ManagedIdentityCredential for Azure deployment
-                    _client = new AgentsClient(_connectionString, new ManagedIdentityCredential());
-                    _logger.LogDebug("Using ManagedIdentityCredential for authentication");
-                    
+                    _client = new AgentsClient(_connectionString, new DefaultAzureCredential());
                     _isInitialized = true;
                 }
                 catch (Exception ex)
@@ -69,9 +70,8 @@ namespace dotnetfashionassistant.Services
                     _logger.LogError(ex, "Error initializing AzureAIAgentService client");
                 }
             }
-        }        public async Task<string> CreateThreadAsync()
-        {
-            if (!_isConfigured)
+        }public async Task<string> CreateThreadAsync()
+        {            if (!_isConfigured)
             {
                 _logger.LogWarning("Attempted to create thread with unconfigured AI Agent service");
                 return "agent-not-configured";
@@ -83,15 +83,12 @@ namespace dotnetfashionassistant.Services
             if (_client == null)
             {
                 _logger.LogWarning("Failed to initialize AI Agent client");
-                return "agent-not-configured";
+                return "agent-initialization-failed";
             }
             
             try
-            {
-                _logger.LogDebug("Creating new AI Agent thread");
-                Response<AgentThread> threadResponse = await _client.CreateThreadAsync();
+            {                Response<AgentThread> threadResponse = await _client.CreateThreadAsync();
                 AgentThread thread = threadResponse.Value;
-                _logger.LogDebug("Successfully created thread with ID: {ThreadId}", thread.Id);
                 return thread.Id;
             }
             catch (Exception ex)
@@ -115,48 +112,27 @@ namespace dotnetfashionassistant.Services
                 _logger.LogWarning("Failed to initialize AI Agent client");
                 return "The AI agent client could not be initialized. Please check the configuration and try again.";
             }
-            
-            try
+              try
             {
-                _logger.LogDebug("Sending message to thread {ThreadId}", threadId);
-                
                 // Send user message to the thread
-                _logger.LogDebug("Creating message in thread {ThreadId}: {Message}", threadId, userMessage);
                 Response<ThreadMessage> messageResponse = await _client.CreateMessageAsync(
                     threadId,
                     MessageRole.User,
                     userMessage);
 
                 // Create and run a request with the agent
-                _logger.LogDebug("Creating run for thread {ThreadId} with agent {AgentId}", threadId, _agentId);
                 Response<ThreadRun> runResponse = await _client.CreateRunAsync(
                     threadId,
                     _agentId);
 
-                ThreadRun run = runResponse.Value;
-                _logger.LogDebug("Run {RunId} created for thread {ThreadId}", run.Id, threadId);
-
-                // Poll until the run reaches a terminal status
-                int pollCount = 0;
+                ThreadRun run = runResponse.Value;                // Poll until the run reaches a terminal status
                 do
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(500));
                     runResponse = await _client.GetRunAsync(threadId, run.Id);
-                    pollCount++;
-                    
-                    if (pollCount % 10 == 0)  // Log every 5 seconds
-                    {
-                        _logger.LogDebug("Waiting for run {RunId} to complete. Current status: {Status}", 
-                            run.Id, runResponse.Value.Status);
-                    }
                 }
                 while (runResponse.Value.Status == RunStatus.Queued
-                    || runResponse.Value.Status == RunStatus.InProgress);
-
-                _logger.LogDebug("Run {RunId} completed with status {Status}", run.Id, runResponse.Value.Status);
-
-                // Get all messages in the thread
-                _logger.LogDebug("Retrieving messages for thread {ThreadId}", threadId);
+                    || runResponse.Value.Status == RunStatus.InProgress);                // Get all messages in the thread
                 Response<PageableList<ThreadMessage>> messagesResponse = await _client.GetMessagesAsync(threadId);
                 IReadOnlyList<ThreadMessage> messages = messagesResponse.Value.Data;
                 
@@ -164,12 +140,8 @@ namespace dotnetfashionassistant.Services
                 ThreadMessage? latestAssistantMessage = messages
                     .Where(m => m.Role.ToString().Equals("Assistant", StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(m => m.CreatedAt)
-                    .FirstOrDefault();
-
-                if (latestAssistantMessage != null)
+                    .FirstOrDefault();                if (latestAssistantMessage != null)
                 {
-                    _logger.LogDebug("Found assistant response in thread {ThreadId}, message ID: {MessageId}", 
-                        threadId, latestAssistantMessage.Id);
                     
                     string responseText = "";
                     foreach (MessageContent contentItem in latestAssistantMessage.ContentItems)
@@ -215,33 +187,33 @@ namespace dotnetfashionassistant.Services
                         Timestamp = DateTime.Now
                     }
                 };
-            }
-            
-            _logger.LogDebug("Getting thread history for thread {ThreadId}", threadId);
-            
-            // Check if we already have this thread history cached and it's recent (less than 1 minute old)
+            }            // Check if we already have this thread history cached and is very recent (less than 5 seconds old)
+            // This ensures more frequent refreshes of the chat history
             if (_threadHistoryCache.TryGetValue(threadId, out var cachedHistory) && 
                 _lastCacheUpdateTime.TryGetValue(threadId, out var lastUpdate) &&
-                (DateTime.UtcNow - lastUpdate).TotalMinutes < 1)
+                (DateTime.UtcNow - lastUpdate).TotalSeconds < 5)
             {
-                _logger.LogDebug("Using cached thread history for {ThreadId}, last updated at {LastUpdate}", threadId, lastUpdate);
-                // Return the cached history if it exists and is recent
+                // Return the cached history if it exists and is very recent
                 return new List<ChatMessage>(cachedHistory);
             }
             
             var chatHistory = new List<ChatMessage>();
             
             try
-            {
-                _logger.LogDebug("Fetching fresh thread history from AI Agent service for {ThreadId}", threadId);
-                // Set a cancellation timeout to prevent hanging
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            {                // Set a cancellation timeout to prevent hanging
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)); // Increased timeout for pagination
                 
-                Response<PageableList<ThreadMessage>> messagesResponse = await _client.GetMessagesAsync(threadId, cancellationToken: cts.Token);
-                IReadOnlyList<ThreadMessage> messages = messagesResponse.Value.Data;
-                _logger.LogDebug("Retrieved {MessageCount} messages for thread {ThreadId}", messages.Count, threadId);
+                // Get all messages - the SDK handles pagination internally
+                var allMessages = new List<ThreadMessage>();
+                Response<PageableList<ThreadMessage>> messagesResponse = await _client.GetMessagesAsync(
+                    threadId, 
+                    cancellationToken: cts.Token);
+                
+                // Add messages from the response
+                allMessages.AddRange(messagesResponse.Value.Data);
 
-                foreach (ThreadMessage message in messages.OrderBy(m => m.CreatedAt))
+                // Process messages in chronological order (oldest to newest)
+                foreach (ThreadMessage message in allMessages.OrderBy(m => m.CreatedAt))
                 {
                     string messageContent = "";
                     foreach (MessageContent contentItem in message.ContentItems)
@@ -251,19 +223,21 @@ namespace dotnetfashionassistant.Services
                             messageContent += textItem.Text ?? string.Empty;
                         }
                     }
-                    
+                      // For AI messages, format the content for proper HTML display
+                    string formattedContent = message.Role != MessageRole.User ? 
+                        FormatMessageContent(messageContent) : "";
+                        
                     chatHistory.Add(new ChatMessage
                     {
                         Content = messageContent,
+                        FormattedContent = formattedContent,
                         IsUser = message.Role == MessageRole.User,
                         Timestamp = message.CreatedAt.DateTime
                     });
                 }
-                
-                // Implement cache eviction policy - if cache exceeds limit, remove oldest entries
+                  // Implement cache eviction policy - if cache exceeds limit, remove oldest entries
                 if (_threadHistoryCache.Count >= _maxCacheEntries)
                 {
-                    _logger.LogInformation("Cache limit reached ({CacheSize}), evicting oldest entries", _threadHistoryCache.Count);
                     // Get oldest entries based on last update time
                     var oldestEntries = _lastCacheUpdateTime
                         .OrderBy(x => x.Value)
@@ -275,7 +249,6 @@ namespace dotnetfashionassistant.Services
                     {
                         _threadHistoryCache.TryRemove(entry.Key, out _);
                         _lastCacheUpdateTime.TryRemove(entry.Key, out _);
-                        _logger.LogDebug("Removed cache entry for thread {ThreadId}", entry.Key);
                     }
                 }
                 
@@ -295,9 +268,26 @@ namespace dotnetfashionassistant.Services
                 // If there's an error, return cached data if available or empty list
                 _logger.LogError(ex, "Error retrieving thread history for thread {ThreadId}", threadId);
                 return cachedHistory ?? new List<ChatMessage>();
-            }
-
-            return chatHistory;
+            }            return chatHistory;
+        }
+        
+        // Helper method to format message content with HTML tags
+        private string FormatMessageContent(string content)
+        {
+            if (string.IsNullOrEmpty(content))
+                return string.Empty;
+                
+            // Handle markdown-style bold text (convert **text** to <strong>text</strong>)
+            content = System.Text.RegularExpressions.Regex.Replace(
+                content, 
+                @"\*\*([^*]+)\*\*", 
+                "<strong>$1</strong>");
+                
+            // Handle line breaks and bullet points
+            return content
+                .Replace("\n\n", "<br><br>")
+                .Replace("\n", "<br>")
+                .Replace("•", "<br>•");
         }
     }
 }

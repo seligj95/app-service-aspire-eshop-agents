@@ -13,6 +13,12 @@ namespace dotnetfashionassistant.Models
         public string Content { get; set; } = string.Empty;
         
         /// <summary>
+        /// Gets or sets the formatted HTML content of the message.
+        /// This preserves formatting when navigating away and returning.
+        /// </summary>
+        public string FormattedContent { get; set; } = string.Empty;
+        
+        /// <summary>
         /// Gets or sets a value indicating whether the message is from the user (true) or the AI (false).
         /// </summary>
         public bool IsUser { get; set; }
