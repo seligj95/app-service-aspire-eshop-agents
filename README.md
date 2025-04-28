@@ -51,7 +51,7 @@ The application consists of:
   - Provision Azure resources defined in the Bicep templates
   - Deploy the application to Azure App Service
 
-At this point, once deployment is complete, you can browse to your app and see the general functionality. Feel free to check out the inventory and add some items to the cart. If you try the chat interface at this point, it will not work and it will prompt you to add the environment variables for the AI Agent.
+This command can take up to 10 minutes to run. At this point, once deployment is complete, you can browse to your app and see the general functionality. Feel free to check out the inventory and add some items to the cart. If you try the chat interface at this point, it will not work and it will prompt you to add the environment variables for the AI Agent.
 
 ## Create the AI Agent
 
