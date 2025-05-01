@@ -38,7 +38,7 @@ param modelVersion string = '2024-07-18'
 param modelSkuName string = 'DataZoneStandard'
 
 @description('Model deployment capacity')
-param modelCapacity int = 50
+param modelCapacity int = 250
 
 @description('Model deployment location. If blank, uses the same location as other resources.')
 param modelLocation string = ''
