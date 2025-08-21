@@ -206,6 +206,9 @@ resource aiProject 'Microsoft.MachineLearningServices/workspaces@2024-10-01-prev
 
     // dependent resources
     hubResourceId: aiHub.id
+    
+    // Optional: Explicit public network access control (currently defaults to Enabled)
+    publicNetworkAccess: 'Enabled'
   }
   kind: 'project'
 }

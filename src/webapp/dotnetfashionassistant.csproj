@@ -20,4 +20,8 @@
     <Folder Include="Properties\ServiceDependencies\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ai-agent-openai-web-app.ServiceDefaults\ai-agent-openai-web-app.ServiceDefaults.csproj" />
+  </ItemGroup>
+
 </Project>

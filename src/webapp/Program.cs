@@ -5,6 +5,9 @@ using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add Aspire service defaults
+builder.AddServiceDefaults();
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -95,5 +98,8 @@ app.MapControllers();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Map Aspire default endpoints
+app.MapDefaultEndpoints();
 
 app.Run();
