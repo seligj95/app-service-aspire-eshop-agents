@@ -91,7 +91,7 @@ module web './core/host/appservice.bicep' = {
     location: location
     appServicePlanId: appServicePlan.outputs.id
     runtimeName: 'dotnetcore'
-    runtimeVersion: '8.0'
+    runtimeVersion: '9.0'
     tags: union(tags, { 'azd-service-name': 'web' })
   }
 }
