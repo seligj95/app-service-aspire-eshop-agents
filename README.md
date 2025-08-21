@@ -1,57 +1,103 @@
-# Fashion Assistant Web App on Azure App Service with Azure AI Agent and OpenAPI Specified Tool
+# Fashion Assistant Web App with .NET Aspire and Azure AI Agent
 
-This sample contains a .NET Blazor web application that uses Azure AI Agents to create an interactive fashion shopping experience. The application demonstrates how to connect a web app to an Azure AI Agent from the [Azure AI Agent Service](https://learn.microsoft.com/azure/ai-services/agents/overview). The agent is given the OpenAPI spec for the web app so that it can handle product recommendations, shopping assistance, shopping cart management and more on your behalf via a chat interface. This sample builds off of the guidance documented by the AI Agent Service in [How to use Azure AI Agent Service with OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec?tabs=python&pivots=overview).
+This sample demonstrates a modern cloud-native .NET Blazor web application enhanced with [.NET Aspire](https://learn.microsoft.com/dotnet/aspire/get-started/aspire-overview) orchestration and Azure AI Agents. The application showcases how to build an interactive fashion shopping experience that combines local development productivity with cloud-native observability and Azure AI integration.
+
+The application demonstrates:
+- **.NET Aspire Integration**: Enhanced development experience with service discovery, telemetry, and health checks
+- **Azure AI Agent Service**: Intelligent shopping assistance using [Azure AI Agent Service](https://learn.microsoft.com/azure/ai-services/agents/overview)
+- **OpenAPI Tool Integration**: How to connect AI agents to web APIs using OpenAPI specifications
+- **Modern Cloud-Native Architecture**: Combining Aspire's local development benefits with Azure App Service deployment
+
+This sample builds upon the guidance from [How to use Azure AI Agent Service with OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec?tabs=python&pivots=overview) while adding modern .NET development practices.
 
 ## Features
 
-- Interactive Blazor UI for fashion e-commerce
-- Integration with Azure AI Agent Service for intelligent shopping assistance
-- Sample usage of the OpenAPI Specified Tool with Azure App Service
-- Secure authentication to Azure AI Agent Service with Azure managed identity
+- **Interactive Blazor UI** for fashion e-commerce with real-time updates
+- **Azure AI Agent integration** for intelligent shopping assistance
+- **.NET Aspire orchestration** with enhanced observability and service discovery
+- **Health check endpoints** (`/health`, `/alive`) for production monitoring
+- **OpenTelemetry integration** for comprehensive telemetry and logging
+- **Sample OpenAPI Specified Tool** implementation with Azure App Service
+- **Secure authentication** to Azure AI Agent Service with Azure managed identity
 
 ## Architecture
 
 The application consists of:
 
-- A .NET 8 Blazor web application frontend 
-- Azure AI Agent integration for intelligent shopping assistance
-- RESTful APIs for shopping cart management
-- Azure App Service and Azure AI Foundry infrastructure using Bicep and azd template
+- **AppHost Project**: .NET Aspire orchestration for local development and Azure deployment
+- **ServiceDefaults Project**: Shared Aspire service configuration (health checks, telemetry, service discovery)
+- **Web Application**: .NET 9 Blazor frontend with AI agent integration
+- **Azure Infrastructure**: App Service and Azure AI Foundry resources using Bicep templates
+- **AI Agent Integration**: Intelligent shopping assistance with OpenAPI tool integration
 
 ## Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 - [Azure Developer CLI](https://aka.ms/azd)
 - Azure subscription
 - Visual Studio 2022 or Visual Studio Code
 
-## Deploy App Service Resources
+## Local Development with Aspire
 
-1. Clone this repository
-2. Login to Azure:
+For the best development experience, use the .NET Aspire AppHost to run the application locally:
 
+1. **Clone this repository**
+2. **Install Aspire workload** (if not already installed):
+   ```bash
+   dotnet workload update
+   dotnet workload install aspire
+   ```
+3. **Run the AppHost project**:
+   ```bash
+   cd src/ai-agent-openai-web-app.AppHost
+   dotnet run
+   ```
+
+This will:
+- Launch the **Aspire Dashboard** (typically at `https://localhost:17071`)
+- Start the web application with enhanced telemetry and health checks
+- Provide real-time monitoring, logging, and service discovery
+- Enable hot reload and enhanced debugging capabilities
+
+The Aspire dashboard provides:
+- **Real-time logs** from all services
+- **Distributed tracing** across service calls
+- **Metrics and performance data**
+- **Health check status** monitoring
+- **Service topology** visualization
+
+## Deploy to Azure
+
+Deploy the Aspire-enhanced application to Azure App Service:
+
+1. **Login to Azure**:
    ```bash
    azd auth login
    ```
 
-3. Initialize your environment:
-
+2. **Initialize your environment**:
    ```bash
    azd env new
    ```
 
-4. Deploy the application:
-
+3. **Deploy the application**:
    ```bash
    azd up
    ```
 
    This will:
-  - Build the .NET application
-  - Provision Azure resources defined in the Bicep templates
-  - Deploy the application to Azure App Service
+   - Build the .NET 9 application with Aspire enhancements
+   - Provision Azure resources defined in the Bicep templates
+   - Deploy the application to Azure App Service with health check endpoints
+   - Configure managed identity for secure AI agent access
 
-This command can take up to 10 minutes to run. At this point, once deployment is complete, you can browse to your app and see the general functionality. Feel free to check out the inventory and add some items to the cart. If you try the chat interface at this point, it will not work and it will prompt you to add the environment variables for the AI Agent.
+The deployment process takes approximately 5-10 minutes. Once complete, your application will include:
+- **Enhanced telemetry** and monitoring capabilities
+- **Health check endpoints** at `/health` and `/alive`
+- **Production-ready logging** and metrics
+- **Secure AI agent integration** via managed identity
+
+> **Note**: After deployment, the general e-commerce functionality will work immediately. However, you need to complete the AI Agent setup below for the chat interface to function.
 
 ## Create the AI Agent
 
@@ -118,11 +164,32 @@ You can also ask general questions about the items and the agent should be able 
 
 ## Clean-up
 
-When you're done with this app, run the following to delete the App Service resources:
+When you're done with this app, run the following to delete all Azure resources:
 
-   ```bash
-   azd down
-   ```
+```bash
+azd down
+```
+
+## Development Benefits with .NET Aspire
+
+This application showcases the benefits of .NET Aspire for modern cloud-native development:
+
+### **Local Development**
+- **Unified Dashboard**: Single view of all services, logs, and telemetry
+- **Service Discovery**: Automatic service-to-service communication
+- **Hot Reload**: Fast development iterations with immediate feedback
+- **Health Monitoring**: Real-time health status of all components
+
+### **Production Deployment**
+- **Enhanced Observability**: OpenTelemetry integration for comprehensive monitoring
+- **Health Endpoints**: Built-in `/health` and `/alive` endpoints for Azure monitoring
+- **Structured Logging**: Improved log correlation and debugging
+- **Cloud-Native Patterns**: Service discovery, circuit breakers, and retry policies
+
+### **Azure Integration**
+- **Seamless Deployment**: Aspire configuration translates directly to Azure App Service
+- **Managed Identity**: Secure authentication without connection strings
+- **Infrastructure as Code**: Bicep templates work alongside Aspire orchestration
 
 ## Troubleshooting
 
@@ -135,19 +202,37 @@ When you're done with this app, run the following to delete the App Service reso
    - Ensure the App Service URL is updated in the `swagger.json` provided to the OpenAPI Specified Tool.
 
 2. **Permission Issues**
-   - If you encounter authentication errors, ensure that your App Service's managed identity has proper permissions to access the Azure AI Agent Service. The managed identity needs at least the `Microsoft.MachineLearningServices/workspaces/agents/action` permission to interact with the Agent. The provided Azure AI Developer role has this permission and should be sufficient. If you decide to change this role, be sure it has the necessary permission.
+   - If you encounter authentication errors, ensure that your App Service's managed identity has proper permissions to access the Azure AI Agent Service. The managed identity needs at least the `Microsoft.MachineLearningServices/workspaces/agents/action` permission to interact with the Agent. The provided Azure AI Developer role has this permission and should be sufficient.
 
 3. **API Issues**
    - If the agent is unable to perform actions on the inventory or cart, check the API routes in the OpenAPI specification.
    - Verify that the API endpoints are responding correctly by testing them directly in the Swagger UI at `/api/docs`.
 
+4. **Aspire Development Issues**
+   - If the Aspire dashboard doesn't load, ensure you have the latest .NET 9 SDK and Aspire workload installed.
+   - Check that all project references are correctly configured between AppHost, ServiceDefaults, and the web application.
+   - Verify that the required Aspire NuGet packages are installed and up to date.
+
 ### Viewing Logs
 
-To view logs for your App Service:
+**Local Development:**
+- Use the Aspire Dashboard at `https://localhost:17071` for real-time logs and telemetry
+- View structured logs with correlation IDs across all services
+- Monitor health checks and service dependencies
 
-1. Navigate to your App Service in the Azure portal.
-2. In the left menu, select **Monitoring** > **Log stream** to view real-time logs.
-3. These logs will reveal any application issues that you may need to address.
+**Production (Azure):**
+1. Navigate to your App Service in the Azure portal
+2. In the left menu, select **Monitoring** > **Log stream** for real-time logs
+3. Use **Application Insights** for enhanced telemetry and distributed tracing
+4. Check **Health checks** at `https://your-app.azurewebsites.net/health`
+
+### Health Check Endpoints
+
+The application includes Aspire-enhanced health check endpoints:
+- **`/health`**: Comprehensive health check (all registered health checks must pass)
+- **`/alive`**: Basic liveness check (minimal health verification)
+
+These endpoints are automatically configured and provide detailed health status information.
 
 ## Understanding the API Capabilities
 
@@ -179,8 +264,39 @@ Beyond basic interactions, the AI agent can handle more complex scenarios:
 
 ## Security Considerations
 
-- The application uses Azure managed identities for secure authentication to Azure AI Agent Service in production environments.
-- No sensitive credentials are stored in the code.
+- The application uses **Azure managed identities** for secure authentication to Azure AI Agent Service
+- **No sensitive credentials** are stored in the code or configuration
+- **Aspire ServiceDefaults** provide secure defaults for service-to-service communication
+- **Health check endpoints** are configured with appropriate security considerations for production
+
+## Project Structure
+
+```
+├── src/
+│   ├── ai-agent-openai-web-app.AppHost/          # Aspire orchestration
+│   │   ├── AppHost.cs                             # Main orchestration logic
+│   │   └── appsettings.json                       # AppHost configuration
+│   ├── ai-agent-openai-web-app.ServiceDefaults/  # Shared Aspire services
+│   │   └── Extensions.cs                          # Health checks, telemetry, service discovery
+│   └── webapp/                                    # Main web application
+│       ├── Program.cs                             # App startup with Aspire integration
+│       ├── Components/                            # Blazor components
+│       ├── Controllers/                           # API controllers
+│       ├── Services/                              # AI agent service
+│       └── swagger.json                           # OpenAPI specification
+├── infra/                                         # Azure infrastructure
+│   ├── main.bicep                                 # Main Bicep template
+│   └── core/                                      # Reusable Bicep modules
+└── azure.yaml                                     # Azure Developer CLI configuration
+```
+
+## Learn More
+
+- [.NET Aspire Documentation](https://learn.microsoft.com/dotnet/aspire/)
+- [Azure AI Agent Service](https://learn.microsoft.com/azure/ai-services/agents/overview)
+- [OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec)
+- [Azure App Service](https://learn.microsoft.com/azure/app-service/)
+- [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
 
 ## License
 
