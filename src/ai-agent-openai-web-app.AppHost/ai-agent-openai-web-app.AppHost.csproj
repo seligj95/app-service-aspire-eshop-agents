@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.4.1" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>02c26dce-1d80-4214-b769-b9b9eba0ef6a</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.4.1" />
+    <PackageReference Include="Aspire.Hosting.Azure.AppService" Version="9.4.1-preview.1.25408.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\webapp\dotnetfashionassistant.csproj" />
+  </ItemGroup>
+
+</Project>
