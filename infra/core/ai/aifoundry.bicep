@@ -35,10 +35,10 @@ param modelFormat string = 'OpenAI'
 param modelVersion string = '2024-07-18'
 
 @description('Model deployment SKU name, prefer GlobalStandard for production workloads')
-param modelSkuName string = 'DataZoneStandard'
+param modelSkuName string = 'GlobalStandard'
 
 @description('Model deployment capacity')
-param modelCapacity int = 250
+param modelCapacity int = 50
 
 @description('Model deployment location. If blank, uses the same location as other resources.')
 param modelLocation string = ''

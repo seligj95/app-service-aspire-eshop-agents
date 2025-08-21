@@ -32,7 +32,7 @@ param aiProjectDescription string = 'A project resource required for the AI agen
 param aiModelName string = 'gpt-4o-mini'
 param aiModelFormat string = 'OpenAI'
 param aiModelVersion string = '2024-07-18'
-param aiModelSkuName string = 'DataZoneStandard'
+param aiModelSkuName string = 'GlobalStandard'
 param aiModelCapacity int = 50
 param aiModelLocation string = ''
 param aiServiceKind string = 'AIServices'
@@ -152,3 +152,15 @@ module aifoundry './core/ai/aifoundry.bicep' = {
 // To see these outputs, run `azd env get-values`,  or `azd env get-values --output json` for json output.
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
+output AZURE_RESOURCE_GROUP string = rg.name
+
+// AI Foundry outputs
+output AI_PROJECT_CONNECTION_STRING string = aifoundry.outputs.projectConnectionString
+output AI_HUB_NAME string = aifoundry.outputs.aiHubName
+output AI_PROJECT_NAME string = aifoundry.outputs.aiProjectName
+output AI_SERVICES_ENDPOINT string = aifoundry.outputs.aiServicesEndpoint
+
+// App Service outputs
+output SERVICE_WEB_IDENTITY_PRINCIPAL_ID string = web.outputs.identityPrincipalId
+output SERVICE_WEB_NAME string = web.outputs.name
+output SERVICE_WEB_URI string = web.outputs.uri
