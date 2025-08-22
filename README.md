@@ -1,24 +1,25 @@
-# Fashion Assistant Web App with .NET Aspire and Azure AI Agent
+# Fashion Assistant Web App with .NET Aspire and Azure AI Foundry
 
-This sample demonstrates a modern cloud-native .NET Blazor web application enhanced with [.NET Aspire](https://learn.microsoft.com/dotnet/aspire/get-started/aspire-overview) orchestration and Azure AI Agents. The application showcases how to build an interactive fashion shopping experience that combines local development productivity with cloud-native observability and Azure AI integration.
+This sample demonstrates a modern cloud-native .NET Blazor web application enhanced with [.NET Aspire](https://learn.microsoft.com/dotnet/aspire/get-started/aspire-overview) orchestration and Azure AI Foundry. The application showcases how to build an interactive fashion shopping experience that combines local development productivity with cloud-native observability and Azure AI integration.
 
 The application demonstrates:
 - **.NET Aspire Integration**: Enhanced development experience with service discovery, telemetry, and health checks
-- **Azure AI Agent Service**: Intelligent shopping assistance using [Azure AI Agent Service](https://learn.microsoft.com/azure/ai-services/agents/overview)
+- **Azure AI Foundry Integration**: Intelligent shopping assistance using [Azure AI Foundry](https://learn.microsoft.com/azure/ai-studio/what-is-ai-studio)
 - **OpenAPI Tool Integration**: How to connect AI agents to web APIs using OpenAPI specifications
 - **Modern Cloud-Native Architecture**: Combining Aspire's local development benefits with Azure App Service deployment
 
-This sample builds upon the guidance from [How to use Azure AI Agent Service with OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec?tabs=python&pivots=overview) while adding modern .NET development practices.
+This sample builds upon the guidance from [How to use Azure AI Foundry with OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-studio/how-to/tools/openapi-spec) while adding modern .NET development practices.
 
 ## Features
 
 - **Interactive Blazor UI** for fashion e-commerce with real-time updates
-- **Azure AI Agent integration** for intelligent shopping assistance
+- **Azure AI Foundry integration** for intelligent shopping assistance with dynamic agent creation
 - **.NET Aspire orchestration** with enhanced observability and service discovery
+- **Automated app settings configuration** for seamless deployment
 - **Health check endpoints** (`/health`, `/alive`) for production monitoring
 - **OpenTelemetry integration** for comprehensive telemetry and logging
 - **Sample OpenAPI Specified Tool** implementation with Azure App Service
-- **Secure authentication** to Azure AI Agent Service with Azure managed identity
+- **Secure authentication** to Azure AI Foundry with Azure managed identity and endpoint-based configuration
 
 ## Architecture
 
@@ -28,7 +29,7 @@ The application consists of:
 - **ServiceDefaults Project**: Shared Aspire service configuration (health checks, telemetry, service discovery)
 - **Web Application**: .NET 9 Blazor frontend with AI agent integration
 - **Azure Infrastructure**: App Service and Azure AI Foundry resources using Bicep templates
-- **AI Agent Integration**: Intelligent shopping assistance with OpenAPI tool integration
+- **AI Agent Integration**: Intelligent shopping assistance with automated agent creation and OpenAPI tool integration
 
 ## Prerequisites
 
@@ -87,80 +88,78 @@ Deploy the Aspire-enhanced application to Azure App Service:
 
    This will:
    - Build the .NET 9 application with Aspire enhancements
-   - Provision Azure resources defined in the Bicep templates
+   - Provision Azure AI Foundry resources defined in the Bicep templates
    - Deploy the application to Azure App Service with health check endpoints
-   - Configure managed identity for secure AI agent access
+   - Configure managed identity for secure AI Foundry access
+   - Automatically configure app settings for agent connectivity
 
 The deployment process takes approximately 5-10 minutes. Once complete, your application will include:
 - **Enhanced telemetry** and monitoring capabilities
 - **Health check endpoints** at `/health` and `/alive`
 - **Production-ready logging** and metrics
-- **Secure AI agent integration** via managed identity
+- **Secure AI Foundry integration** via managed identity and endpoint configuration
+- **Automated agent creation** and configuration
 
-> **Note**: After deployment, the general e-commerce functionality will work immediately. However, you need to complete the AI Agent setup below for the chat interface to function.
+## AI Agent Configuration (Optional)
 
-## Create the AI Agent
+The application now includes **automated agent creation** that works out of the box. However, if you want to customize the agent or create additional agents, you can use the Azure AI Foundry portal:
 
-You now create the AI Agent that your app uses. The Azure AI Foundry resources were created as part of the azd template. You need to create the agent and connect that agent to your App Service.
+### Access Azure AI Foundry
 
 1. Sign in to the [Azure portal](https://portal.azure.com) and go to the resource group that was created by the azd template.
 2. Click the **Azure AI project** resource that was created for you.
 3. Click **Launch studio** to open the Azure AI Foundry studio.
-4. On the left-hand side under "Build and customize", select **Agents**.
-5. In the dropdown, select the auto-generated Azure OpenAI Service resource that was created for you and then click **Let's go**.
-6. Click **+ New agent** to create a new agent or use the default one if one is already created for you.
-7. Once your agent is created, add the following instructions on the right-hand side. These instructions will ensure your agent only answers questions and completes tasks related to the fashion store app.
+
+### View or Customize Your Agent
+
+1. On the left-hand side under "Build and customize", select **Agents**.
+2. You should see the automatically created agent named "Fashion Assistant".
+3. Click on the agent to view or modify its configuration.
+
+The default agent includes:
+- **Optimized instructions** for fashion store assistance
+- **Pre-configured OpenAPI tool** connected to your App Service
+- **Automatic endpoint configuration** using your deployed application URL
+
+### Manual Agent Creation (Advanced)
+
+If you prefer to create agents manually or need multiple agents:
+
+1. In Azure AI Foundry, click **+ New agent**.
+2. Add the following instructions:
 
   ```
   You are an agent for a fashion store that sells clothing. You have the ability to view inventory, update the customer's shopping cart, and answer questions about the clothing items that are in the inventory. You should not answer questions about topics that are unrelated to the fashion store. If a user asks an unrelated question, please respond by telling them that you can only talk about things that are related to the fashion store.
   ```
 
-### Add the OpenAPI Specified Tool to the AI Agent
+3. Add the OpenAPI tool by clicking **+ Add** next to **Action**.
+4. Select **OpenAPI 3.0 specified tool**.
+5. Use the description: "This tool is used to interact with and manage an online fashion store. The tool can add or remove items from a shopping cart as well as view inventory."
+6. Copy the OpenAPI specification from [swagger.json](./src/webapp/swagger.json) and update the server URL to your deployed App Service URL.
 
-For detailed guidance with screenshots, see [Add OpenAPI spec tool in the Azure AI Foundry portal](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec?tabs=python&pivots=overview#add-openapi-spec-tool-in-the-azure-ai-foundry-portal). The steps will be summarized below.
+### Environment Variables (Automated)
 
-1. Click **+ Add** next to **Action**.
-2. Select **OpenAPI 3.0 specified tool**.
-3. Give your tool a name and a description. The description will be used by the model to decide when and how to use the tool. For this sample, you can use the following description:
+The following environment variables are automatically configured during deployment:
+- `AI_PROJECT_ENDPOINT`: Your Azure AI Foundry project endpoint
+- `AI_SERVICES_ENDPOINT`: Your Azure AI Services endpoint  
+- `AI_MODEL_DEPLOYMENT_NAME`: The deployed model name (gpt-4o-mini)
 
-  ```
-  This tool is used to interact with and manage an online fashion store. The tool can add or remove items from a shopping cart as well as view inventory.
-  ```
-
-4. Leave the authentication method as anonymous. There is no authentication on the web app. If the app required an API key or managed identity to access it, this is where you would specify this information.
-5. Copy and paste your OpenAPI specification in the text box. The OpenAPI specification is provided in this repo and is called [swagger.json](./src/webapp/swagger.json). 
-6. Before you create the tool, you need to copy and paste your app's URL into the OpenAPI specification you are providing to the tool. Replace the placeholder `<APP-SERVICE-URL>` with your app's URL. It should be in the format `https://<app-name>.azurewebsites.net`.
-7. Click **Next**, review the details you provided, and then click **Create Tool**.
-
-### Update App Service Environment Variables
-
-After setting up the AI Agent and adding the OpenAPI Specified Tool, you need to configure your App Service with the appropriate environment variables.
-
-1. From the Agents dashboard where you just added your tool, note the agent ID. It should be in the format `asst_<unique-id>`.
-2. Click **Overview** on the left-hand side and note the project's connection string. It should be in the format `<region>.api.azureml.ms;<subscription-id>;<resource-group-name>;<project-name>`.
-3. Navigate back to your App Service.
-4. From the left menu, select **Environment variables**.
-5. In the **App settings** tab, click **+ Add** and add the following settings:
-  - **Name**: `AzureAIAgent__ConnectionString`
-  - **Value**: The connection string you noted from your AI Agent Service
-6. Add another app setting:
-  - **Name**: `AzureAIAgent__AgentId`
-  - **Value**: The Agent ID you noted when creating your agent
-7. Click **Apply** at the bottom of the page and confirm when prompted.
-8. The app will restart with the new settings applied.
+These settings enable the application to automatically create and manage agents as needed.
 
 ## Use the app
 
-Now that all of the support resources are created and updated, the app is ready for use. Ask the agent questions such as:
+The application is now ready to use immediately after deployment! The AI agent is automatically created and configured when you first interact with the chat interface. Ask the agent questions such as:
 
 - What's in my cart?
 - Add a small denim jacket to my cart
 - Do we have any blazers in stock?
 
-You can also ask general questions about the items and the agent should be able to provide information.
+You can also ask general questions about the items and the agent should be able to provide information:
 
 - Tell me about Red Slim Fit Checked Casual Shirt
 - Is the blazer warm?
+
+The agent will automatically create itself on first use and connect to your application's API using the deployed OpenAPI specification.
 
 ## Clean-up
 
@@ -190,22 +189,23 @@ This application showcases the benefits of .NET Aspire for modern cloud-native d
 - **Seamless Deployment**: Aspire configuration translates directly to Azure App Service
 - **Managed Identity**: Secure authentication without connection strings
 - **Infrastructure as Code**: Bicep templates work alongside Aspire orchestration
+- **Automated Configuration**: Environment variables and agent setup handled automatically
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Chat Not Working**
-   - Verify that the environment variables (`AzureAIAgent__ConnectionString` and `AzureAIAgent__AgentId`) are correctly set in the App Service configuration.
-   - Check that the AI Agent was properly created and configured with the correct OpenAPI tool.
-   - Ensure the OpenAPI specification URL is accessible from the Azure AI Agent Service.
-   - Ensure the App Service URL is updated in the `swagger.json` provided to the OpenAPI Specified Tool.
+   - The agent is now created automatically on first use. If you still experience issues:
+   - Check the application logs in Azure App Service for any agent creation errors.
+   - Verify that the Azure AI Foundry resources are properly provisioned.
+   - Ensure the managed identity has proper permissions to access Azure AI Foundry.
 
 2. **Permission Issues**
-   - If you encounter authentication errors, ensure that your App Service's managed identity has proper permissions to access the Azure AI Agent Service. The managed identity needs at least the `Microsoft.MachineLearningServices/workspaces/agents/action` permission to interact with the Agent. The provided Azure AI Developer role has this permission and should be sufficient.
+   - If you encounter authentication errors, ensure that your App Service's managed identity has proper permissions to access Azure AI Foundry. The managed identity needs the appropriate cognitive services permissions.
 
 3. **API Issues**
-   - If the agent is unable to perform actions on the inventory or cart, check the API routes in the OpenAPI specification.
+   - If the agent is unable to perform actions on the inventory or cart, the OpenAPI tool should be automatically configured.
    - Verify that the API endpoints are responding correctly by testing them directly in the Swagger UI at `/api/docs`.
 
 4. **Aspire Development Issues**
@@ -264,10 +264,12 @@ Beyond basic interactions, the AI agent can handle more complex scenarios:
 
 ## Security Considerations
 
-- The application uses **Azure managed identities** for secure authentication to Azure AI Agent Service
+- The application uses **Azure managed identities** for secure authentication to Azure AI Foundry
 - **No sensitive credentials** are stored in the code or configuration
 - **Aspire ServiceDefaults** provide secure defaults for service-to-service communication
 - **Health check endpoints** are configured with appropriate security considerations for production
+- **Endpoint-based authentication** eliminates the need for connection strings
+- **Automatic agent management** reduces security surface area by eliminating manual configuration
 
 ## Project Structure
 
@@ -293,8 +295,8 @@ Beyond basic interactions, the AI agent can handle more complex scenarios:
 ## Learn More
 
 - [.NET Aspire Documentation](https://learn.microsoft.com/dotnet/aspire/)
-- [Azure AI Agent Service](https://learn.microsoft.com/azure/ai-services/agents/overview)
-- [OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-services/agents/how-to/tools/openapi-spec)
+- [Azure AI Foundry Documentation](https://learn.microsoft.com/azure/ai-studio/)
+- [OpenAPI Specified Tools](https://learn.microsoft.com/azure/ai-studio/how-to/tools/openapi-spec)
 - [Azure App Service](https://learn.microsoft.com/azure/app-service/)
 - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
 

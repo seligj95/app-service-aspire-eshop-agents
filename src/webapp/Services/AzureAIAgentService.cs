@@ -33,36 +33,10 @@ namespace dotnetfashionassistant.Services
             _configuration = configuration;
             _logger = logger;
 
-            // Log all available configuration keys for debugging
-            _logger.LogError("=== AZURE AI AGENT SERVICE INITIALIZATION ===");
-            _logger.LogError("Available configuration keys containing 'AI':");
-            foreach (var kvp in configuration.AsEnumerable())
-            {
-                if (kvp.Key?.Contains("AI") == true)
-                {
-                    _logger.LogError("Config Key: {0} = {1}", kvp.Key, kvp.Value);
-                }
-            }
-
             // Get configuration values from the new AI Foundry environment variables
-            // Try multiple approaches for Azure App Service compatibility
-            var aiServicesEndpoint = _configuration["AI_SERVICES_ENDPOINT"] ?? 
-                                    Environment.GetEnvironmentVariable("AI_SERVICES_ENDPOINT") ??
-                                    _configuration.GetConnectionString("AI_SERVICES_ENDPOINT");
-            
             var projectEndpoint = _configuration["AI_PROJECT_ENDPOINT"] ?? 
                                 Environment.GetEnvironmentVariable("AI_PROJECT_ENDPOINT") ??
                                 _configuration.GetConnectionString("AI_PROJECT_ENDPOINT");
-            
-            // Force error-level logging to ensure we see this
-            _logger.LogError("Configuration debug - AI_SERVICES_ENDPOINT: {0}, AI_PROJECT_ENDPOINT: {1}", 
-                !string.IsNullOrEmpty(aiServicesEndpoint) ? $"Found: {aiServicesEndpoint}" : "Missing", 
-                !string.IsNullOrEmpty(projectEndpoint) ? $"Found: {projectEndpoint}" : "Missing");
-            
-            if (!string.IsNullOrEmpty(projectEndpoint))
-            {
-                _logger.LogError("Raw project endpoint: {0}", projectEndpoint);
-            }
             
             // For Azure.AI.Agents.Persistent v1.1.0+, we use the endpoint format
             if (!string.IsNullOrEmpty(projectEndpoint))
@@ -74,15 +48,8 @@ namespace dotnetfashionassistant.Services
             
             if (!_isConfigured)
             {
-                _logger.LogError("Azure AI Agent configuration FAILED. AI_SERVICES_ENDPOINT={0}, AI_PROJECT_ENDPOINT={1}", 
-                    !string.IsNullOrEmpty(aiServicesEndpoint), !string.IsNullOrEmpty(projectEndpoint));
+                _logger.LogError("Azure AI Agent configuration failed: AI_PROJECT_ENDPOINT is missing");
             }
-            else
-            {
-                _logger.LogError("Azure AI Agent configured successfully with endpoint: {0}", _projectEndpoint);
-            }
-            
-            _logger.LogError("=== END AZURE AI AGENT SERVICE INITIALIZATION ===");
         }
         
         // Lazy initialization of the client only when actually needed
@@ -107,7 +74,6 @@ namespace dotnetfashionassistant.Services
                 }
                 catch (Exception ex)
                 {
-                    // Log the exception but don't set _isConfigured to false - we might succeed next time
                     _logger.LogError(ex, "Error initializing AzureAIAgentService client");
                 }
             }
@@ -117,7 +83,6 @@ namespace dotnetfashionassistant.Services
         {
             if (!_isConfigured)
             {
-                _logger.LogWarning("Attempted to create thread with unconfigured AI Agent service");
                 return "agent-not-configured";
             }
             
@@ -126,7 +91,6 @@ namespace dotnetfashionassistant.Services
             
             if (_agentsClient == null)
             {
-                _logger.LogWarning("Failed to initialize AI Agent client");
                 return "agent-initialization-failed";
             }
             
@@ -146,7 +110,6 @@ namespace dotnetfashionassistant.Services
         {
             if (!_isConfigured || threadId == "agent-not-configured")
             {
-                _logger.LogWarning("Attempted to send message with unconfigured AI Agent service");
                 return "The AI agent is not properly configured. Please add the required environment variable (AI_PROJECT_ENDPOINT) in your application settings.";
             }
             
@@ -155,7 +118,6 @@ namespace dotnetfashionassistant.Services
             
             if (_agentsClient == null)
             {
-                _logger.LogWarning("Failed to initialize AI Agent client");
                 return "The AI agent client could not be initialized. Please check the configuration and try again.";
             }
             
@@ -216,7 +178,6 @@ namespace dotnetfashionassistant.Services
                     try
                     {
                         await _agentsClient!.Administration.DeleteAgentAsync(agent.Id);
-                        _logger.LogDebug("Deleted agent {AgentId}", agent.Id);
                     }
                     catch (Exception ex)
                     {
@@ -246,7 +207,6 @@ namespace dotnetfashionassistant.Services
 
 Be friendly, helpful, and knowledgeable about fashion. If you need to access inventory or cart information, let the user know what you found or if you need more details to help them better.");
 
-                _logger.LogDebug("Created agent {AgentId}", agentResponse.Value.Id);
                 return agentResponse.Value;
             }
             catch (Exception ex)
@@ -295,12 +255,11 @@ Be friendly, helpful, and knowledgeable about fashion. If you need to access inv
                 };
             }
 
-            // Check if we already have this thread history cached and is very recent (less than 5 seconds old)
+            // Check if we already have this thread history cached and is recent (less than 30 seconds old)
             if (_threadHistoryCache.TryGetValue(threadId, out var cachedHistory) && 
                 _lastCacheUpdateTime.TryGetValue(threadId, out var lastUpdate) &&
-                (DateTime.UtcNow - lastUpdate).TotalSeconds < 5)
+                (DateTime.UtcNow - lastUpdate).TotalSeconds < 30)
             {
-                // Return the cached history if it exists and is very recent
                 return new List<ChatMessage>(cachedHistory);
             }
             
@@ -316,7 +275,9 @@ Be friendly, helpful, and knowledgeable about fashion. If you need to access inv
                     threadId: threadId,
                     limit: 20,
                     order: ListSortOrder.Descending
-                );                // Process messages in chronological order (oldest to newest)
+                );
+                
+                // Process messages in chronological order (oldest to newest)
                 var messagesList = new List<PersistentThreadMessage>();
                 await foreach (var message in messagesResponse)
                 {
@@ -370,10 +331,9 @@ Be friendly, helpful, and knowledgeable about fashion. If you need to access inv
                 _lastCacheUpdateTime.AddOrUpdate(threadId, DateTime.UtcNow, 
                     (key, oldValue) => DateTime.UtcNow);
             }
-            catch (OperationCanceledException ex)
+            catch (OperationCanceledException)
             {
                 // If the operation timed out, return cached data if available or empty list
-                _logger.LogWarning(ex, "Thread history operation timed out for thread {ThreadId}", threadId);
                 return cachedHistory ?? new List<ChatMessage>();
             }
             catch (Exception ex)
