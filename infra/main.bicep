@@ -1,79 +1,55 @@
-targetScope = 'subscription'
+targetScope = 'resourceGroup'
 
-// The main bicep module to provision Azure resources.
-// For a more complete walkthrough to understand how this file works with azd,
-// see https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/make-azd-compatible?pivots=azd-create
+@description('Primary location for all resources')
+param location string = resourceGroup().location
 
-@minLength(1)
-@maxLength(64)
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
 param environmentName string
 
-@minLength(1)
-@description('Primary location for all resources')
-param location string
-
-// Optional parameters to override the default azd resource naming conventions.
-// Add the following to main.parameters.json to provide values:
-// "resourceGroupName": {
-//      "value": "myGroupName"
-// }
-param resourceGroupName string = ''
+@description('Optional App Service name override')
 param appServiceName string = ''
+
+@description('Optional App Service Plan name override')
 param appServicePlanName string = ''
 
-// AI Foundry parameters
-param aiHubName string = 'aihub'
-param aiHubFriendlyName string = 'AI Hub for Agent'
-param aiHubDescription string = 'A hub resource required for the AI agent setup.'
-param aiProjectName string = 'aiproject'
-param aiProjectFriendlyName string = 'AI Project for Agent'
-param aiProjectDescription string = 'A project resource required for the AI agent setup.'
-param aiModelName string = 'gpt-4o-mini'
-param aiModelFormat string = 'OpenAI'
-param aiModelVersion string = '2024-07-18'
-param aiModelSkuName string = 'GlobalStandard'
-param aiModelCapacity int = 50
-param aiModelLocation string = ''
-param aiServiceKind string = 'AIServices'
+@description('Model name for deployment')
+param modelName string = 'gpt-4o-mini'
 
+@description('Model format for deployment')
+param modelFormat string = 'OpenAI'
+
+@description('Model version for deployment')
+param modelVersion string = '2024-07-18'
+
+@description('Model deployment SKU name')
+param modelSkuName string = 'GlobalStandard'
+
+@description('Model deployment capacity')
+param modelCapacity int = 50
+
+// Load abbreviations
 var abbrs = loadJsonContent('./abbreviations.json')
 
-// tags that should be applied to all resources.
+// VARIABLES
 var tags = {
-  // Tag all resources with the environment name.
   'azd-env-name': environmentName
 }
 
-// Generate a unique token to be used in naming resources.
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 
-// Generate resource names for AI Foundry
-var aiStorageAccountName = 'aistg${take(replace(resourceToken, '-', ''), 16)}'
-var aiServicesAccountName = 'aisvc-${resourceToken}'
-var aiKeyVaultName = 'aikv-${resourceToken}'
+// Resource names
+var actualAppServicePlanName = !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
+var actualAppServiceName = !empty(appServiceName) ? appServiceName : '${abbrs.webSitesAppService}web-${resourceToken}'
+var aiServiceName = 'ai-${resourceToken}'
+var deploymentName = modelName
 
-// Name of the service defined in azure.yaml
-// A tag named azd-service-name with this value should be applied to the service host resource, such as:
-//   Microsoft.Web/sites for appservice, function
-// Example usage:
-//   tags: union(tags, { 'azd-service-name': apiServiceName })
+// RESOURCES
 
-// Organize resources in a resource group
-resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-  name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
-  location: location
-  tags: tags
-}
-
-// Add resources to be provisioned below.
-
-// Create an App Service Plan to group applications under the same payment plan and SKU
+// Create an App Service Plan
 module appServicePlan './core/host/appserviceplan.bicep' = {
   name: 'appserviceplan'
-  scope: rg
   params: {
-    name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
+    name: actualAppServicePlanName
     location: location
     tags: tags
     sku: {
@@ -82,85 +58,124 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
   }
 }
 
-// The application App
+// Create the AI Foundry resource (CognitiveServices account)
+resource aiFoundryResource 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+  name: aiServiceName
+  location: location
+  tags: tags
+  kind: 'AIServices'
+  sku: {
+    name: 'S0'
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    customSubDomainName: toLower(aiServiceName)
+    publicNetworkAccess: 'Enabled'
+    allowProjectManagement: true
+  }
+}
+
+// Create an AI Project as a child resource
+resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' = {
+  parent: aiFoundryResource
+  name: 'proj-${resourceToken}'
+  location: location
+  tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    displayName: 'AI Project for .NET Agent'
+  }
+}
+
+// Create model deployment
+resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = {
+  parent: aiFoundryResource
+  name: deploymentName
+  sku: {
+    name: modelSkuName
+    capacity: modelCapacity
+  }
+  properties: {
+    model: {
+      format: modelFormat
+      name: modelName
+      version: modelVersion
+    }
+  }
+}
+
+// The application App - using the working module approach
 module web './core/host/appservice.bicep' = {
   name: 'web'
-  scope: rg
   params: {
-    name: !empty(appServiceName) ? appServiceName : '${abbrs.webSitesAppService}web-${resourceToken}'
+    name: actualAppServiceName
     location: location
     appServicePlanId: appServicePlan.outputs.id
     runtimeName: 'dotnetcore'
     runtimeVersion: '9.0'
     tags: union(tags, { 'azd-service-name': 'web' })
+    appSettings: {
+      AI_PROJECT_ENDPOINT: 'https://${aiServiceName}.services.ai.azure.com/api/projects/${aiProject.name}'
+      AI_SERVICES_ENDPOINT: aiFoundryResource.properties.endpoint
+      AI_MODEL_DEPLOYMENT_NAME: deploymentName
+    }
   }
 }
 
-// Azure AI Developer role definition ID
-var aiDeveloperRoleId = '64702f94-c441-49e6-a78b-ef80e0188fee'
+// Role assignments for the app service to access AI services
+resource cognitiveServicesContributorRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '25fbc0a9-bd7c-42a3-aa1a-3b75d497ee68'
+  scope: subscription()
+}
 
-// Create a unique ID for the role assignment that doesn't depend on runtime values
-var roleAssignmentName = guid(subscription().id, environmentName, aiDeveloperRoleId)
-
-// Assign Azure AI Developer role to the web app's managed identity
-resource azureAIDeveloperRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: roleAssignmentName
+resource cognitiveServicesContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(aiFoundryResource.id, cognitiveServicesContributorRole.id, actualAppServiceName)
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', aiDeveloperRoleId)
     principalId: web.outputs.identityPrincipalId
+    roleDefinitionId: cognitiveServicesContributorRole.id
     principalType: 'ServicePrincipal'
   }
 }
 
-// Deploy the AI Foundry resources using the module
-module aifoundry './core/ai/aifoundry.bicep' = {
-  name: 'aifoundry'
-  scope: rg
-  params: {
-    aiHubName: aiHubName
-    aiHubFriendlyName: aiHubFriendlyName
-    aiHubDescription: aiHubDescription
-    aiProjectName: aiProjectName
-    aiProjectFriendlyName: aiProjectFriendlyName
-    aiProjectDescription: aiProjectDescription
-    location: location
-    tags: tags
-    modelName: aiModelName
-    modelFormat: aiModelFormat
-    modelVersion: aiModelVersion
-    modelSkuName: aiModelSkuName
-    modelCapacity: aiModelCapacity
-    modelLocation: aiModelLocation
-    aiServiceKind: aiServiceKind
-    storageAccountName: aiStorageAccountName
-    aiServicesName: aiServicesAccountName
-    keyVaultName: aiKeyVaultName
-    resourceToken: resourceToken
-    subscriptionId: subscription().subscriptionId
-    rgName: rg.name
-    webAppPrincipalId: web.outputs.identityPrincipalId
+resource cognitiveServicesOpenAIUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+  scope: subscription()
+}
+
+resource cognitiveServicesOpenAIUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(aiFoundryResource.id, cognitiveServicesOpenAIUserRole.id, actualAppServiceName)
+  properties: {
+    principalId: web.outputs.identityPrincipalId
+    roleDefinitionId: cognitiveServicesOpenAIUserRole.id
+    principalType: 'ServicePrincipal'
   }
 }
 
-// Add outputs from the deployment here, if needed.
-//
-// This allows the outputs to be referenced by other bicep deployments in the deployment pipeline,
-// or by the local machine as a way to reference created resources in Azure for local development.
-// Secrets should not be added here.
-//
-// Outputs are automatically saved in the local azd environment .env file.
-// To see these outputs, run `azd env get-values`,  or `azd env get-values --output json` for json output.
+resource cognitiveServicesUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: 'a97b65f3-24c7-4388-baec-2e87135dc908'
+  scope: subscription()
+}
+
+resource cognitiveServicesUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(aiFoundryResource.id, cognitiveServicesUserRole.id, actualAppServiceName)
+  properties: {
+    principalId: web.outputs.identityPrincipalId
+    roleDefinitionId: cognitiveServicesUserRole.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// OUTPUTS
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
-output AZURE_RESOURCE_GROUP string = rg.name
-
-// AI Foundry outputs
-output AI_PROJECT_CONNECTION_STRING string = aifoundry.outputs.projectConnectionString
-output AI_HUB_NAME string = aifoundry.outputs.aiHubName
-output AI_PROJECT_NAME string = aifoundry.outputs.aiProjectName
-output AI_SERVICES_ENDPOINT string = aifoundry.outputs.aiServicesEndpoint
-
-// App Service outputs
+output AZURE_RESOURCE_GROUP string = resourceGroup().name
+output AI_PROJECT_ENDPOINT string = 'https://${aiServiceName}.services.ai.azure.com/api/projects/${aiProject.name}'
+output AI_SERVICES_ENDPOINT string = aiFoundryResource.properties.endpoint
+output AI_MODEL_DEPLOYMENT_NAME string = deploymentName
 output SERVICE_WEB_IDENTITY_PRINCIPAL_ID string = web.outputs.identityPrincipalId
 output SERVICE_WEB_NAME string = web.outputs.name
 output SERVICE_WEB_URI string = web.outputs.uri

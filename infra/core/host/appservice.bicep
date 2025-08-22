@@ -4,9 +4,7 @@ param location string = resourceGroup().location
 param tags object = {}
 
 // Reference Properties
-param applicationInsightsName string = ''
 param appServicePlanId string
-param keyVaultName string = ''
 param managedIdentity bool = true
 
 // Runtime Properties
@@ -62,7 +60,6 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
     clientAffinityEnabled: clientAffinityEnabled
     httpsOnly: true
   }
-
   identity: { type: managedIdentity ? 'SystemAssigned' : 'None' }
 
   resource basicPublishingCredentialsPoliciesFtp 'basicPublishingCredentialsPolicies' = {
@@ -82,7 +79,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
 
 // Updates to the single Microsoft.sites/web/config resources that need to be performed sequentially
 // sites/web/config 'appsettings'
-module configAppSettings 'appservice-appsettings.bicep' = {
+module configAppSettings './appservice-appsettings.bicep' = {
   name: '${name}-appSettings'
   params: {
     name: appService.name
@@ -90,10 +87,7 @@ module configAppSettings 'appservice-appsettings.bicep' = {
       {
         SCM_DO_BUILD_DURING_DEPLOYMENT: string(scmDoBuildDuringDeployment)
         ENABLE_ORYX_BUILD: string(enableOryxBuild)
-      },
-      runtimeName == 'python' && appCommandLine == '' ? { PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true'} : {},
-      !empty(applicationInsightsName) ? { APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString } : {},
-      !empty(keyVaultName) ? { AZURE_KEY_VAULT_ENDPOINT: keyVault.properties.vaultUri } : {})
+      })
   }
 }
 
@@ -108,14 +102,6 @@ resource configLogs 'Microsoft.Web/sites/config@2022-03-01' = {
     httpLogs: { fileSystem: { enabled: true, retentionInDays: 1, retentionInMb: 35 } }
   }
   dependsOn: [configAppSettings]
-}
-
-resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = if (!(empty(keyVaultName))) {
-  name: keyVaultName
-}
-
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing = if (!empty(applicationInsightsName)) {
-  name: applicationInsightsName
 }
 
 output identityPrincipalId string = managedIdentity ? appService.identity.principalId : ''

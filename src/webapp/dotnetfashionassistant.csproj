@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.6" />
+    <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.1.0" />
     <PackageReference Include="Azure.Identity" Version="1.15.0" />
     <PackageReference Include="Blazor.Bootstrap" Version="3.4.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
