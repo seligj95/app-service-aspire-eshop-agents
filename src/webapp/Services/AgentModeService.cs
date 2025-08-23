@@ -3,16 +3,14 @@ using System;
 namespace dotnetfashionassistant.Services
 {
     /// <summary>
-    /// Service to maintain the state of AI Agent across the application.
+    /// Service to maintain the multi-agent conversation state across the application.
+    /// HANDS-ON DEMO: This service persists the thread ID for multi-agent conversations.
     /// </summary>
     public class AgentModeService
     {
         /// <summary>
-        /// Gets or sets the current AI Agent thread ID for maintaining conversation state.
+        /// Gets or sets the current multi-agent thread ID for maintaining conversation state.
         /// </summary>
         public string? CurrentThreadId { get; set; }
-        
-        // Always using Azure AI Agent Mode, so this is now always true
-        public bool UseAzureAIAgent { get; } = true;
     }
 }

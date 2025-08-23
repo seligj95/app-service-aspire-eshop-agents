@@ -10,7 +10,7 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject IConfiguration configuration
 @inject IJSRuntime JSRuntime
-@inject dotnetfashionassistant.Services.AzureAIAgentService AzureAIAgentService
+@inject dotnetfashionassistant.Services.MultiAgentOrchestrationService AgentService
 @inject dotnetfashionassistant.Services.AgentModeService AgentModeService
 @inject dotnetfashionassistant.Services.CartUpdateService CartUpdateService
 
@@ -274,7 +274,7 @@
             
             try
             {
-                var history = await AzureAIAgentService.GetThreadHistoryAsync(currentThreadId);
+                var history = await AgentService.GetThreadHistoryAsync(currentThreadId);
                 
                 // Update the chat history on the UI thread
                 await InvokeAsync(() => {
@@ -366,11 +366,11 @@
             // Create a thread if this is the first message
             if (string.IsNullOrEmpty(currentThreadId))
             {
-                currentThreadId = await AzureAIAgentService.CreateThreadAsync();
+                currentThreadId = await AgentService.CreateThreadAsync();
                 AgentModeService.CurrentThreadId = currentThreadId;
             }
               // Send message to Azure AI Agent and get response
-            string aiResponse = await AzureAIAgentService.SendMessageAsync(currentThreadId, userMessage);
+            string aiResponse = await AgentService.SendMessageAsync(currentThreadId, userMessage);
             
             // Format the response for better HTML display
             string formattedResponse = FormatAgentResponse(aiResponse);

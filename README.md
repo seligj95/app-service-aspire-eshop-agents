@@ -303,3 +303,62 @@ Beyond basic interactions, the AI agent can handle more complex scenarios:
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+<!-- ## TODO
+- update inventory so that it matches what we have here
+- add mcp agent to view inventory
+- make orchestrator agent
+- make cart manager agent
+- make general clothing questions agent
+- add multi agent
+- add auth to mcp server
+- make long system prompt for main agent
+- make content evaluator agent to ensure only shopping related questions are asked
+
+
+Multi-Agent System Architecture Plan
+Overview
+Your proposed 4-agent system is well-designed and follows best practices for specialization and separation of concerns:
+
+Main Orchestrator Agent - Intent classification and delegation (no tools)
+Cart Manager Agent - Cart operations using OpenAPI tool
+Fashion Advisor Agent - General fashion advice (no tools)
+Content Moderator Agent - Content validation and filtering (no tools)
+Detailed Agent Specifications
+1. Main Orchestrator Agent
+Role: Central coordinator and intent classifier
+Tools: None (uses Connected Agents only)
+Responsibilities:
+Analyze user input to determine intent
+Route requests to appropriate specialized agents
+Compile responses from connected agents
+Maintain conversation context
+Instructions: "You are a fashion store assistant coordinator. Analyze user requests and delegate to the appropriate specialist: cart management, fashion advice, or content validation."
+2. Cart Manager Agent
+Role: Shopping cart operations specialist
+Tools: OpenAPI tool (using your swagger.json)
+Responsibilities:
+Add/remove items from cart
+Update quantities
+View cart contents and totals
+Check inventory availability
+Server URL: Will be dynamically configured from deployed App Service URL
+Instructions: "You specialize in shopping cart management. Use the available tools to help customers manage their cart, check inventory, and handle shopping operations."
+3. Fashion Advisor Agent
+Role: Fashion expert and stylist
+Tools: None (knowledge-based only)
+Responsibilities:
+Provide style recommendations
+Suggest outfit coordination
+Give fashion tips and trends
+Help with sizing and fit guidance
+Instructions: "You are a fashion expert providing style advice, outfit recommendations, and fashion tips. Focus on general fashion knowledge without accessing specific inventory or cart data."
+4. Content Moderator Agent
+Role: Content validation and safety
+Tools: None (rule-based validation)
+Responsibilities:
+Validate conversation relevance to fashion store
+Filter inappropriate content
+Ensure responses stay within scope
+Reject off-topic requests
+Instructions: "You validate that all conversations are relevant to the fashion store. Reject requests about unrelated topics and ensure appropriate content only." -->

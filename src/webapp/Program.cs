@@ -1,4 +1,3 @@
-using dotnetfashionassistant.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
@@ -29,8 +28,9 @@ builder.Services.AddBlazorBootstrap();
 // Register CartUpdateService as a singleton so it can be used for cross-component communication
 builder.Services.AddSingleton<dotnetfashionassistant.Services.CartUpdateService>();
 
-// Register the AzureAIAgentService
-builder.Services.AddScoped<dotnetfashionassistant.Services.AzureAIAgentService>();
+// Register the Multi-Agent Orchestration Service 
+// HANDS-ON DEMO: This is the main AI service using 4 specialized agents!
+builder.Services.AddScoped<dotnetfashionassistant.Services.MultiAgentOrchestrationService>();
 
 // Register AgentModeService as a singleton to persist mode state across the application
 builder.Services.AddSingleton<dotnetfashionassistant.Services.AgentModeService>();
@@ -96,7 +96,8 @@ app.UseAntiforgery();
 // Map controllers for API endpoints
 app.MapControllers();
 
-app.MapRazorComponents<App>()
+// MULTI-AGENT SYSTEM IS IMPLEMENTED AND READY
+app.MapRazorComponents<dotnetfashionassistant.Components.App>()
     .AddInteractiveServerRenderMode();
 
 // Map Aspire default endpoints
