@@ -178,6 +178,10 @@ namespace dotnetfashionassistant.Services
             {
                 _logger.LogInformation("Starting multi-agent conversation for message: {Message}", userMessage);
                 
+                // Invalidate cache for this thread since we're adding a new message
+                _threadHistoryCache.TryRemove(threadId, out _);
+                _lastCacheUpdateTime.TryRemove(threadId, out _);
+                
                 // STEP 1: Create all specialist agents
                 // This demonstrates creating each type of agent with their specific purposes
                 _logger.LogInformation("Creating specialist agents...");
@@ -222,23 +226,23 @@ namespace dotnetfashionassistant.Services
                     3, orchestratorAgent.Id);
 
                 // STEP 3: Process the conversation through the orchestrator
-                // The orchestrator will automatically delegate to the appropriate specialist
-                _logger.LogInformation("Processing message through orchestrator...");
+                // Add the user message to the existing thread and create a run
+                _logger.LogInformation("Adding message to existing thread {ThreadId}...", threadId);
                 
-                var userMessageOptions = new ThreadMessageOptions(MessageRole.User, userMessage);
-                var threadOptions = new PersistentAgentThreadCreationOptions();
-                threadOptions.Messages.Add(userMessageOptions);
+                // Add the user message to the existing thread
+                await _agentsClient.Messages.CreateMessageAsync(
+                    threadId: threadId,
+                    role: MessageRole.User,
+                    content: userMessage);
                 
-                var threadAndRunOptions = new ThreadAndRunOptions
-                {
-                    ThreadOptions = threadOptions
-                };
+                _logger.LogInformation("User message added to thread. Creating run with orchestrator...");
                 
-                var run = await _agentsClient.CreateThreadAndRunAsync(orchestratorAgent.Id, threadAndRunOptions);
-                _logger.LogInformation("Started orchestrator run: {RunId}", run.Value.Id);
+                // Create a run with the orchestrator agent on the existing thread
+                var run = await _agentsClient.Runs.CreateRunAsync(threadId, orchestratorAgent.Id);
+                _logger.LogInformation("Started orchestrator run: {RunId} on thread: {ThreadId}", run.Value.Id, threadId);
                 
                 // Wait for the orchestrator to complete (including any specialist delegations)
-                var completedRun = await WaitForRunCompletionAsync(run.Value.ThreadId, run.Value.Id);
+                var completedRun = await WaitForRunCompletionAsync(threadId, run.Value.Id);
                 
                 if (completedRun.Status != RunStatus.Completed)
                 {
@@ -252,7 +256,7 @@ namespace dotnetfashionassistant.Services
                 }
 
                 // STEP 4: Get the coordinated response from the orchestrator
-                var messagesPageable = _agentsClient.Messages.GetMessagesAsync(run.Value.ThreadId);
+                var messagesPageable = _agentsClient.Messages.GetMessagesAsync(threadId);
                 var messagesList = new List<PersistentThreadMessage>();
                 await foreach (var message in messagesPageable)
                 {
@@ -368,6 +372,8 @@ namespace dotnetfashionassistant.Services
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 
+                _logger.LogInformation("Fetching messages for thread {ThreadId}", threadId);
+                
                 var messagesResponse = _agentsClient.Messages.GetMessagesAsync(
                     threadId: threadId,
                     limit: 20,
@@ -378,7 +384,11 @@ namespace dotnetfashionassistant.Services
                 await foreach (var message in messagesResponse)
                 {
                     messagesList.Add(message);
+                    _logger.LogDebug("Retrieved message: Role={Role}, CreatedAt={CreatedAt}, ContentItems={ContentCount}", 
+                        message.Role, message.CreatedAt, message.ContentItems?.Count ?? 0);
                 }
+                
+                _logger.LogInformation("Retrieved {MessageCount} raw messages from thread {ThreadId}", messagesList.Count, threadId);
                 
                 foreach (var message in messagesList.OrderBy(m => m.CreatedAt))
                 {
@@ -391,6 +401,9 @@ namespace dotnetfashionassistant.Services
                         }
                     }
                     
+                    _logger.LogDebug("Processing message: Role={Role}, Content={ContentPreview}", 
+                        message.Role, messageContent.Length > 50 ? messageContent.Substring(0, 50) + "..." : messageContent);
+                    
                     string formattedContent = message.Role != MessageRole.User ? 
                         FormatMessageContent(messageContent) : "";
                         
@@ -402,6 +415,8 @@ namespace dotnetfashionassistant.Services
                         Timestamp = message.CreatedAt.DateTime
                     });
                 }
+                
+                _logger.LogInformation("Processed {ChatHistoryCount} messages into chat history for thread {ThreadId}", chatHistory.Count, threadId);
                 
                 // Cache management
                 if (_threadHistoryCache.Count >= _maxCacheEntries)
@@ -474,6 +489,32 @@ namespace dotnetfashionassistant.Services
                 ["ConnectedAgentDescriptions"] = connectedAgentDescriptions,
                 ["Architecture"] = "Orchestrator → Specialist Agents → Coordinated Response"
             };
+        }
+
+        /// <summary>
+        /// Enhanced send message method that returns agent tracking information.
+        /// Maintains compatibility with the UI's expected interface.
+        /// </summary>
+        public async Task<AgentResponse> SendMessageWithAgentTrackingAsync(string threadId, string userMessage)
+        {
+            var response = await SendMessageAsync(threadId, userMessage);
+            
+            return new AgentResponse
+            {
+                Content = response
+            };
+        }
+
+        /// <summary>
+        /// Compatibility method for cleanup conversation functionality.
+        /// Since we now use per-request agent pattern, this is a no-op.
+        /// </summary>
+        public async Task CleanupConversationAsync(string threadId)
+        {
+            // With the per-request pattern, agents are automatically cleaned up after each message
+            // This method exists for backward compatibility but doesn't need to do anything
+            await Task.CompletedTask;
+            _logger.LogDebug("CleanupConversationAsync called for thread {ThreadId} - using per-request pattern, no cleanup needed", threadId);
         }
     }
 }

@@ -25,9 +25,6 @@ builder.Services.AddHttpClient("LocalApi", (serviceProvider, client) =>
 
 builder.Services.AddBlazorBootstrap();
 
-// Register CartUpdateService as a singleton so it can be used for cross-component communication
-builder.Services.AddSingleton<dotnetfashionassistant.Services.CartUpdateService>();
-
 // Register the Multi-Agent Orchestration Service 
 // HANDS-ON DEMO: This is the main AI service using 4 specialized agents!
 builder.Services.AddScoped<dotnetfashionassistant.Services.MultiAgentOrchestrationService>();

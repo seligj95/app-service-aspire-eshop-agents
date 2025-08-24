@@ -161,57 +161,158 @@ namespace dotnetfashionassistant.Services.Agents
 
         public override async Task<PersistentAgent?> CreateAgentAsync()
         {
-            try
+            // MUST HAVE OpenAPI tool - fail if it can't be created
+            var openApiTool = await CreateOpenApiToolAsync();
+            if (openApiTool == null)
             {
-                // Create OpenAPI tool for cart operations
-                var openApiTool = await CreateOpenApiToolAsync();
-                var tools = openApiTool != null ? new[] { openApiTool } : null;
+                var errorMsg = "🛒 CART AGENT CREATION FAILED - OpenAPI tool could not be created. Check logs above for specific error.";
+                _logger.LogError(errorMsg);
+                throw new InvalidOperationException(errorMsg);
+            }
 
-                return await CreateAgentWithErrorHandlingAsync(
-                    AgentDefinitions.CartManager.Name,
-                    AgentDefinitions.CartManager.Description,
-                    AgentDefinitions.CartManager.Instructions,
-                    tools);
-            }
-            catch (Exception ex)
+            var tools = new[] { openApiTool };
+
+            var agent = await CreateAgentWithErrorHandlingAsync(
+                AgentDefinitions.CartManager.Name,
+                AgentDefinitions.CartManager.Description,
+                AgentDefinitions.CartManager.Instructions,
+                tools);
+
+            if (agent == null)
             {
-                _logger.LogError(ex, "Failed to create cart manager agent");
-                return null;
+                var errorMsg = "🛒 CART AGENT CREATION FAILED - Agent creation returned null";
+                _logger.LogError(errorMsg);
+                throw new InvalidOperationException(errorMsg);
             }
+
+            _logger.LogInformation("🛒 CART AGENT CREATED SUCCESSFULLY with OpenAPI tools");
+            return agent;
         }
 
         /// <summary>
         /// Creates the OpenAPI tool for cart operations.
-        /// This dynamically configures the server URL based on the deployed app service.
-        /// 
-        /// DEMO NOTE: This is where we connect the agent to our actual API!
+        /// MUST succeed or throw exception with detailed error.
         /// </summary>
         private async Task<OpenApiToolDefinition?> CreateOpenApiToolAsync()
         {
+            // Step 1: Get server URL
+            var serverUrl = GetServerUrl();
+            _logger.LogInformation("🛒 STEP 1 - Server URL: {ServerUrl}", serverUrl);
+
+            // Step 2: Get swagger specification
+            var swaggerJson = await GetUpdatedSwaggerSpecificationAsync(serverUrl);
+            if (string.IsNullOrEmpty(swaggerJson))
+            {
+                var errorMsg = "🛒 STEP 2 FAILED - Could not load or update swagger specification";
+                _logger.LogError(errorMsg);
+                throw new InvalidOperationException(errorMsg);
+            }
+            _logger.LogInformation("🛒 STEP 2 SUCCESS - Swagger spec loaded, length: {Length}", swaggerJson.Length);
+
+            // Step 3: Test API connectivity
+            await TestCartApiAsync(serverUrl);
+
+            // Step 4: Create OpenAPI tool
             try
             {
-                // Get the current app's base URL or use localhost for development
-                var serverUrl = GetServerUrl();
-                
-                // Read and update the swagger.json specification
-                var swaggerJson = await GetUpdatedSwaggerSpecificationAsync(serverUrl);
-                
-                if (string.IsNullOrEmpty(swaggerJson))
-                {
-                    _logger.LogWarning("Could not load swagger specification for cart manager");
-                    return null;
-                }
-
-                return new OpenApiToolDefinition(
+                var tool = new OpenApiToolDefinition(
                     name: "fashion_store_api",
                     description: "API for managing fashion store inventory and shopping cart operations",
                     spec: BinaryData.FromString(swaggerJson),
                     openApiAuthentication: new OpenApiAnonymousAuthDetails());
+
+                _logger.LogInformation("🛒 STEP 4 SUCCESS - OpenAPI tool created successfully");
+                return tool;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to create OpenAPI tool for cart manager");
-                return null;
+                var errorMsg = $"🛒 STEP 4 FAILED - OpenAPI tool creation failed: {ex.Message}";
+                _logger.LogError(ex, errorMsg);
+                throw new InvalidOperationException(errorMsg, ex);
+            }
+        }
+
+        /// <summary>
+        /// Creates a minimal OpenAPI specification focused on cart operations as a fallback.
+        /// </summary>
+        private string CreateMinimalCartApiSpec(string serverUrl)
+        {
+            var minimalSpec = $$"""
+            {
+                "openapi": "3.0.4",
+                "info": {
+                    "title": "Fashion Store Cart API",
+                    "description": "Basic cart operations for the fashion store",
+                    "version": "v1"
+                },
+                "servers": [
+                    {
+                        "url": "{{serverUrl}}"
+                    }
+                ],
+                "paths": {
+                    "/api/Cart": {
+                        "get": {
+                            "operationId": "getCart",
+                            "summary": "Get cart contents",
+                            "responses": {
+                                "200": {
+                                    "description": "Cart contents",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "items": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object"
+                                                        }
+                                                    },
+                                                    "totalCost": {
+                                                        "type": "number"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            """;
+
+            _logger.LogInformation("Created minimal cart API specification as fallback");
+            return minimalSpec;
+        }
+
+        /// <summary>
+        /// Tests the cart API to ensure it's accessible.
+        /// MUST succeed or throw exception.
+        /// </summary>
+        private async Task TestCartApiAsync(string serverUrl)
+        {
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(10);
+            
+            var cartUrl = $"{serverUrl}/api/Cart";
+            _logger.LogInformation("🛒 CART DEBUG - Testing cart API at: {CartUrl}", cartUrl);
+            
+            var response = await httpClient.GetAsync(cartUrl);
+            var responseContent = await response.Content.ReadAsStringAsync();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("🛒 CART DEBUG - Cart API test successful: {StatusCode}, Response: {Response}", 
+                    response.StatusCode, responseContent);
+            }
+            else
+            {
+                var errorMsg = $"🛒 CART API TEST FAILED - {response.StatusCode} - {response.ReasonPhrase}, Response: {responseContent}";
+                _logger.LogError(errorMsg);
+                throw new HttpRequestException(errorMsg);
             }
         }
 
@@ -221,50 +322,111 @@ namespace dotnetfashionassistant.Services.Agents
         /// </summary>
         private string GetServerUrl()
         {
-            // Try to get from various configuration sources
-            var serverUrl = _configuration["WEBSITE_HOSTNAME"] ?? 
-                           Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME") ??
-                           _configuration["ServerUrl"] ??
+            // Log all potential URL sources for debugging
+            var websiteHostname = _configuration["WEBSITE_HOSTNAME"] ?? Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME");
+            var configServerUrl = _configuration["ServerUrl"];
+            var siteName = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME");
+            
+            _logger.LogInformation("🛒 CART DEBUG - URL Detection: WEBSITE_HOSTNAME: {WebsiteHostname}, ServerUrl: {ServerUrl}, WEBSITE_SITE_NAME: {SiteName}", 
+                websiteHostname, configServerUrl, siteName);
+
+            // Try to get from various configuration sources in order of preference
+            var serverUrl = websiteHostname ?? 
+                           configServerUrl ??
                            "localhost:5000"; // fallback for local development
+
+            // For Azure App Service, we can also check for the common hostname pattern
+            if (serverUrl == "localhost:5000" && !string.IsNullOrEmpty(siteName))
+            {
+                serverUrl = $"{siteName}.azurewebsites.net";
+                _logger.LogInformation("🛒 CART DEBUG - Detected Azure App Service, using site name: {SiteName}", siteName);
+            }
+
+            // If we still don't have a proper URL, try to detect from the current request context
+            if (serverUrl == "localhost:5000")
+            {
+                // Try to get the current app's URL from common Azure App Service environment variables
+                var defaultHostname = Environment.GetEnvironmentVariable("WEBSITE_DEFAULT_HOSTNAME");
+                if (!string.IsNullOrEmpty(defaultHostname))
+                {
+                    serverUrl = defaultHostname;
+                    _logger.LogInformation("🛒 CART DEBUG - Using WEBSITE_DEFAULT_HOSTNAME: {DefaultHostname}", defaultHostname);
+                }
+            }
 
             // Ensure proper format
             if (!serverUrl.StartsWith("http"))
             {
-                serverUrl = serverUrl.Contains("localhost") ? $"http://{serverUrl}" : $"https://{serverUrl}";
+                if (serverUrl.Contains("localhost"))
+                {
+                    serverUrl = $"http://{serverUrl}";
+                }
+                else
+                {
+                    serverUrl = $"https://{serverUrl}";
+                }
             }
 
-            _logger.LogInformation("Using server URL for OpenAPI tool: {ServerUrl}", serverUrl);
+            _logger.LogInformation("🛒 CART DEBUG - Final server URL for OpenAPI tool: {ServerUrl}", serverUrl);
             return serverUrl;
         }
 
         /// <summary>
         /// Reads the swagger.json file and updates the server URL dynamically.
-        /// This ensures the agent can call the correct API endpoint.
+        /// MUST succeed or throw exception.
         /// </summary>
-        private async Task<string?> GetUpdatedSwaggerSpecificationAsync(string serverUrl)
+        private async Task<string> GetUpdatedSwaggerSpecificationAsync(string serverUrl)
         {
-            try
+            var swaggerPath = Path.Combine(AppContext.BaseDirectory, "swagger.json");
+            _logger.LogInformation("🛒 Looking for swagger.json at: {SwaggerPath}", swaggerPath);
+            
+            if (!File.Exists(swaggerPath))
             {
-                var swaggerPath = Path.Combine(AppContext.BaseDirectory, "swagger.json");
-                if (!File.Exists(swaggerPath))
+                // Try alternative locations
+                var alternativePath = Path.Combine(Directory.GetCurrentDirectory(), "swagger.json");
+                _logger.LogInformation("🛒 Trying alternative path: {AlternativePath}", alternativePath);
+                
+                if (File.Exists(alternativePath))
                 {
-                    _logger.LogWarning("Swagger.json file not found at {SwaggerPath}", swaggerPath);
-                    return null;
+                    swaggerPath = alternativePath;
+                    _logger.LogInformation("🛒 Found swagger.json at alternative location");
                 }
+                else
+                {
+                    var errorMsg = $"🛒 SWAGGER FILE NOT FOUND - Checked: {swaggerPath} and {alternativePath}";
+                    _logger.LogError(errorMsg);
+                    throw new FileNotFoundException(errorMsg);
+                }
+            }
 
-                var swaggerContent = await File.ReadAllTextAsync(swaggerPath);
-                
-                // Replace the placeholder server URL with the actual server URL
-                swaggerContent = swaggerContent.Replace("<APP-SERVICE-URL>", serverUrl);
-                
-                _logger.LogInformation("Updated swagger specification with server URL: {ServerUrl}", serverUrl);
-                return swaggerContent;
-            }
-            catch (Exception ex)
+            var swaggerContent = await File.ReadAllTextAsync(swaggerPath);
+            _logger.LogInformation("🛒 Read swagger.json file, length: {Length} characters", swaggerContent.Length);
+            
+            // Log the original content to see what we're working with
+            var originalUrlMatch = swaggerContent.Contains("<APP-SERVICE-URL>");
+            _logger.LogInformation("🛒 Swagger contains placeholder <APP-SERVICE-URL>: {HasPlaceholder}", originalUrlMatch);
+            
+            if (!originalUrlMatch)
             {
-                _logger.LogError(ex, "Failed to read or update swagger specification");
-                return null;
+                _logger.LogWarning("🛒 Swagger file does not contain expected placeholder <APP-SERVICE-URL>");
             }
+            
+            // Replace the placeholder server URL with the actual server URL
+            var updatedContent = swaggerContent.Replace("<APP-SERVICE-URL>", serverUrl);
+            
+            // Verify the replacement worked
+            var replacementSuccessful = !updatedContent.Contains("<APP-SERVICE-URL>");
+            _logger.LogInformation("🛒 URL replacement successful: {ReplacementSuccessful}, final server URL: {ServerUrl}", 
+                replacementSuccessful, serverUrl);
+            
+            if (!replacementSuccessful && originalUrlMatch)
+            {
+                var errorMsg = "🛒 URL REPLACEMENT FAILED - Placeholder still exists after replacement";
+                _logger.LogError(errorMsg);
+                throw new InvalidOperationException(errorMsg);
+            }
+            
+            return updatedContent;
         }
     }
 

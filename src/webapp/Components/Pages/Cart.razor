@@ -7,7 +7,6 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
-@inject CartUpdateService CartUpdateService
 @rendermode InteractiveServer
 
 <PageTitle>Shopping Cart</PageTitle>
@@ -311,12 +310,7 @@
     {
         client = HttpClientFactory.CreateClient("LocalApi");
         await LoadCart();
-        
-        // Start polling for cart updates
-        StartCartPolling();
     }
-    
-    private System.Threading.Timer? _pollingTimer;
 
     private async Task LoadCart()
     {
@@ -377,11 +371,6 @@
                 {
                     cartItems = cartSummary.Items;
                     totalCost = cartSummary.TotalCost;
-                    
-                    // Update cart counter immediately
-                    await UpdateCartCounterDisplay();
-                    // Notify other components about cart update
-                    CartUpdateService.NotifyCartUpdated();
                 }
             }
             else
@@ -412,11 +401,6 @@
                 {
                     cartItems = cartSummary.Items;
                     totalCost = cartSummary.TotalCost;
-                    
-                    // Update cart counter immediately
-                    await UpdateCartCounterDisplay();
-                    // Notify other components about cart update
-                    CartUpdateService.NotifyCartUpdated();
                 }
             }
         }
@@ -438,11 +422,6 @@
                 {
                     cartItems = cartSummary.Items;
                     totalCost = cartSummary.TotalCost;
-                    
-                    // Update cart counter immediately
-                    await UpdateCartCounterDisplay();
-                    // Notify other components about cart update
-                    CartUpdateService.NotifyCartUpdated();
                 }
             }
         }
@@ -470,11 +449,6 @@
                     cartItems.Clear();
                     totalCost = 0;
                 }
-                
-                // Update cart counter immediately (will be 0 since cart is cleared)
-                await UpdateCartCounterDisplay();
-                // Notify other components about cart update
-                CartUpdateService.NotifyCartUpdated();
             }
         }
         catch (Exception ex)
@@ -493,93 +467,5 @@
         // In a real application, this would navigate to a checkout page
         // For now, just show an alert
         JSRuntime.InvokeVoidAsync("alert", "Checkout functionality is not implemented in this demo.");
-    }
-    
-    // Method to start polling for cart updates
-    private void StartCartPolling()
-    {
-        // Poll every 3 seconds for cart updates
-        _pollingTimer = new System.Threading.Timer(async _ =>
-        {
-            await CheckForCartUpdates();
-        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3));
-    }
-    
-    private async Task CheckForCartUpdates()
-    {
-        try
-        {
-            var cartSummary = await client.GetFromJsonAsync<CartSummary>("api/Cart");
-            if (cartSummary != null)
-            {
-                // Check if there are any differences between the current cart and the new cart
-                bool hasChanged = false;
-                
-                // Check if item count changed
-                if (cartSummary.Items.Count != cartItems.Count)
-                {
-                    hasChanged = true;
-                }
-                else
-                {
-                    // Check for changes in quantity or price of items
-                    foreach (var newItem in cartSummary.Items)
-                    {
-                        var existingItem = cartItems.FirstOrDefault(i => 
-                            i.ProductId == newItem.ProductId && i.Size == newItem.Size);
-                            
-                        if (existingItem == null || existingItem.Quantity != newItem.Quantity || existingItem.Price != newItem.Price)
-                        {
-                            hasChanged = true;
-                            break;
-                        }
-                    }
-                }
-                
-                // If cart has changed, update UI and notify components
-                if (hasChanged)
-                {
-                    await InvokeAsync(async () =>
-                    {
-                        cartItems = cartSummary.Items;
-                        totalCost = cartSummary.TotalCost;
-                        
-                        // Update cart counter immediately
-                        await UpdateCartCounterDisplay();
-                        // Notify other components about cart update
-                        CartUpdateService.NotifyCartUpdated();
-                        
-                        StateHasChanged();
-                    });
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error checking for cart updates: {ex.Message}");
-        }
-    }
-    
-    // IDisposable implementation to clean up the timer
-    public void Dispose()
-    {
-        _pollingTimer?.Dispose();
-    }
-    
-    // Method to update the cart counter immediately using JavaScript
-    private async Task UpdateCartCounterDisplay()
-    {
-        try
-        {
-            // Calculate the total quantity of items in the cart
-            int totalQuantity = cartItems?.Sum(item => item.Quantity) ?? 0;
-            
-            // Use JavaScript interop to update the cart badge in real-time
-            await JSRuntime.InvokeVoidAsync("updateCartBadge", totalQuantity);
-        }
-        catch
-        {
-            // Silently fail if we can't update the counter
-        }
     }
 }

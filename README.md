@@ -307,13 +307,9 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 <!-- ## TODO
 - update inventory so that it matches what we have here
 - add mcp agent to view inventory
-- make orchestrator agent
-- make cart manager agent
-- make general clothing questions agent
-- add multi agent
 - add auth to mcp server
 - make long system prompt for main agent
-- make content evaluator agent to ensure only shopping related questions are asked
+- keep past messages when move between tabs -
 
 
 Multi-Agent System Architecture Plan

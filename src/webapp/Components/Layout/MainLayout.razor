@@ -1,6 +1,5 @@
 ﻿@inherits LayoutComponentBase
-@using dotnetfashionassistant.Services
-@inject CartUpdateService CartUpdateService
+@using Microsoft.AspNetCore.Components.Routing
 <CascadingValue Value="this">
 <header class="masthead">
     <div class="header-content">
@@ -9,22 +8,21 @@
             <h1>Fashion Store Assistant</h1>
         </div>
         <nav class="main-nav">
-            <ul class="nav-list">                <li class="nav-item">
-                    <a class="nav-link @(GetCurrentPageClass("/"))" href="/">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
                         <i class="bi bi-chat-dots-fill"></i> Assistant
-                    </a>
+                    </NavLink>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link @(GetCurrentPageClass("/inventory"))" href="/inventory">
+                    <NavLink class="nav-link" href="/inventory">
                         <i class="bi bi-box-seam-fill"></i> Inventory
-                    </a>
-                </li>                <li class="nav-item">
-                    <a class="nav-link @(GetCurrentPageClass("/cart"))" href="/cart">
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/cart">
                         <i class="bi bi-cart-fill"></i> Cart
-                        <span id="cartBadge" class="cart-badge" style="@(CartItemCount > 0 ? "display:inline-block" : "display:none")">
-                            @CartItemCount
-                        </span>
-                    </a>
+                    </NavLink>
                 </li>
             </ul>
         </nav>
@@ -102,18 +100,6 @@
         font-size: 1.2rem;
     }
     
-    .cart-badge {
-        position: absolute;
-        top: -6px;
-        right: -6px;
-        background-color: #ff6b6b;
-        color: white;
-        border-radius: 50%;
-        padding: 0.15rem 0.35rem;
-        font-size: 0.75rem;
-        font-weight: bold;
-    }
-    
     .nav-item {
         position: relative;
     }
@@ -141,70 +127,8 @@
 </CascadingValue>
 
 @code {
-    [Inject]
-    public required NavigationManager NavigationManager { get; set; }
-    
-    [Inject]
-    public required IHttpClientFactory HttpClientFactory { get; set; }
-    
-    private int CartItemCount { get; set; } = 0;
-      protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        // Subscribe to the cart update events
-        CartUpdateService.CartUpdated += OnCartUpdated;
-        
-        // Initial cart count load
-        await UpdateCartItemCount();
-    }
-      protected override Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            // Set up a timer to periodically update cart count as a fallback (every 5 seconds)
-            var timer = new System.Threading.Timer(async _ =>
-            {
-                await UpdateCartItemCount();
-                await InvokeAsync(StateHasChanged);
-            }, null, 0, 5000);
-        }
-        
-        return Task.CompletedTask;
-    }
-    
-    // This method is called whenever the CartUpdateService triggers an update
-    private async void OnCartUpdated()
-    {
-        await UpdateCartItemCount();
-        await InvokeAsync(StateHasChanged);
-    }
-    
-    // Clean up event handler when component is disposed
-    public void Dispose()
-    {
-        CartUpdateService.CartUpdated -= OnCartUpdated;
-    }      public async Task UpdateCartItemCount()
-    {
-        try
-        {
-            var client = HttpClientFactory.CreateClient("LocalApi");
-            var cartSummary = await client.GetFromJsonAsync<dotnetfashionassistant.Models.CartSummary>("api/Cart");
-            CartItemCount = cartSummary?.Items?.Sum(item => item.Quantity) ?? 0;
-            StateHasChanged();
-        }
-        catch (Exception)
-        {
-            // Silently fail if API is not available
-            CartItemCount = 0;
-        }
-    }
-    
-    private string GetCurrentPageClass(string page)
-    {
-        var currentUri = NavigationManager.Uri.ToLower();
-        if (page == "/" && currentUri.EndsWith("/"))
-            return "active";
-        else if (page != "/" && currentUri.EndsWith(page.ToLower()))
-            return "active";
-        return "";
+        // Component initialization without cart polling
     }
 }

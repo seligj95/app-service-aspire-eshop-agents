@@ -12,7 +12,7 @@
 @inject IJSRuntime JSRuntime
 @inject dotnetfashionassistant.Services.MultiAgentOrchestrationService AgentService
 @inject dotnetfashionassistant.Services.AgentModeService AgentModeService
-@inject dotnetfashionassistant.Services.CartUpdateService CartUpdateService
+@implements IDisposable
 
 <div class="container">
     <div class="content">        
@@ -233,6 +233,20 @@
             transform: scale(0.8);
         }
     }
+    
+    /* DEMO FEATURE: Styling for agents used display */
+    .agents-used {
+        margin-top: 8px;
+        padding: 4px 8px;
+        background-color: #f8f9fa;
+        border-left: 3px solid #0d6efd;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+    
+    .agents-used i {
+        color: #0d6efd;
+    }
 </style>
 
 @code {
@@ -244,21 +258,43 @@
     
     protected override async Task OnInitializedAsync()
     {
-        // If we have a stored thread ID, use it
-        if (!string.IsNullOrEmpty(AgentModeService.CurrentThreadId))
+        // Subscribe to thread ID changes
+        AgentModeService.ThreadIdChanged += OnThreadIdChanged;
+        
+        // Always try to get the current thread ID and load history
+        currentThreadId = AgentModeService.CurrentThreadId;
+        
+        Console.WriteLine($"OnInitializedAsync - ThreadId: {currentThreadId ?? "null"}");
+        
+        if (!string.IsNullOrEmpty(currentThreadId))
         {
-            currentThreadId = AgentModeService.CurrentThreadId;
+            // Clear any existing history first
+            chatHistory.Clear();
             
-            // Add a welcome message while history loads
-            if (chatHistory.Count == 0)
+            // Add a loading message
+            chatHistory.Add(new ChatMessage
             {
-                chatHistory.Add(new ChatMessage
-                {
-                    Content = "Loading conversation history...",
-                    IsUser = false,
-                    Timestamp = DateTime.Now
-                });
-            }
+                Content = "Loading conversation history...",
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+            
+            // Trigger UI update
+            StateHasChanged();
+            
+            // Load history immediately
+            await LoadChatHistoryAsync();
+        }
+        else
+        {
+            // No existing thread, start fresh
+            chatHistory.Clear();
+            chatHistory.Add(new ChatMessage
+            {
+                Content = "Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?",
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
         }
         
         await base.OnInitializedAsync();
@@ -274,15 +310,24 @@
             
             try
             {
+                Console.WriteLine($"Loading chat history for thread: {currentThreadId}");
                 var history = await AgentService.GetThreadHistoryAsync(currentThreadId);
+                Console.WriteLine($"Loaded {history.Count} messages from history");
                 
                 // Update the chat history on the UI thread
                 await InvokeAsync(() => {
                     chatHistory.Clear();
                     
-                    // If no messages were loaded, add a welcome message
-                    if (history.Count == 0)
+                    if (history.Count > 0)
                     {
+                        // Add loaded history - we have actual conversation history
+                        chatHistory.AddRange(history);
+                        Console.WriteLine($"Chat history loaded successfully. Total messages in UI: {chatHistory.Count}");
+                    }
+                    else
+                    {
+                        // No messages in thread yet, but thread exists - this is a new conversation
+                        Console.WriteLine("Thread exists but no messages yet - starting new conversation");
                         chatHistory.Add(new ChatMessage
                         {
                             Content = "Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?",
@@ -290,17 +335,13 @@
                             Timestamp = DateTime.Now
                         });
                     }
-                    else
-                    {
-                        // Add loaded history
-                        chatHistory.AddRange(history);
-                    }
                     
                     StateHasChanged();
                 });
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"Error loading chat history: {ex.Message}");
                 // If there's an error loading history, show a friendly message
                 await InvokeAsync(() => {
                     chatHistory.Clear();
@@ -317,10 +358,32 @@
             {
                 isLoadingHistory = false;
             }
-        }    }
+        }
+        else if (string.IsNullOrEmpty(currentThreadId))
+        {
+            // No thread ID - start fresh
+            Console.WriteLine("No thread ID available - starting fresh conversation");
+            await InvokeAsync(() => {
+                chatHistory.Clear();
+                chatHistory.Add(new ChatMessage
+                {
+                    Content = "Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?",
+                    IsUser = false,
+                    Timestamp = DateTime.Now
+                });
+                StateHasChanged();
+            });
+        }
+    }
       // Start a new conversation by clearing the current thread ID and resetting the chat
-    private void StartNewConversation()
+    private async Task StartNewConversation()
     {
+        // Clean up the previous conversation's orchestrator agent
+        if (!string.IsNullOrEmpty(currentThreadId))
+        {
+            await AgentService.CleanupConversationAsync(currentThreadId);
+        }
+        
         // Clear the current thread ID
         currentThreadId = null;
         AgentModeService.CurrentThreadId = null;
@@ -369,26 +432,26 @@
                 currentThreadId = await AgentService.CreateThreadAsync();
                 AgentModeService.CurrentThreadId = currentThreadId;
             }
-              // Send message to Azure AI Agent and get response
-            string aiResponse = await AgentService.SendMessageAsync(currentThreadId, userMessage);
+              // Send message to Azure AI Agent and get enhanced response with agent tracking
+            var agentResponse = await AgentService.SendMessageWithAgentTrackingAsync(currentThreadId, userMessage);
             
             // Format the response for better HTML display
-            string formattedResponse = FormatAgentResponse(aiResponse);
+            string formattedResponse = FormatAgentResponse(agentResponse.Content);
             
             // Add AI response to chat history
             chatHistory.Add(new ChatMessage { 
-                Content = aiResponse,
+                Content = agentResponse.Content,
                 FormattedContent = formattedResponse,
                 IsUser = false,
-                Timestamp = DateTime.Now 
+                Timestamp = DateTime.Now
             });
             
             // Check if the response mentions adding items to cart
-            if (aiResponse.Contains("added to your cart") || 
-                aiResponse.Contains("been added to your cart") || 
-                aiResponse.Contains("Added to cart") ||
-                aiResponse.Contains("item to your cart") ||
-                aiResponse.Contains("items to your cart"))
+            if (agentResponse.Content.Contains("added to your cart") || 
+                agentResponse.Content.Contains("been added to your cart") || 
+                agentResponse.Content.Contains("Added to cart") ||
+                agentResponse.Content.Contains("item to your cart") ||
+                agentResponse.Content.Contains("items to your cart"))
             {
                 // Update the cart counter if items were added
                 await UpdateCartCounterAsync();
@@ -421,6 +484,9 @@
         }
     }    private string FormatAgentResponse(string response)
     {
+        if (string.IsNullOrEmpty(response))
+            return string.Empty;
+            
         // Format the response for better HTML display
         
         // Handle markdown-style bold text (convert **text** to <strong>text</strong>)
@@ -429,11 +495,46 @@
             @"\*\*([^*]+)\*\*", 
             "<strong>$1</strong>");
             
-        // Handle line breaks and bullet points
-        return response
-            .Replace("\n\n", "<br><br>")
-            .Replace("\n", "<br>")
-            .Replace("•", "<br>•");
+        // Handle markdown-style headers (### Header)
+        response = System.Text.RegularExpressions.Regex.Replace(
+            response, 
+            @"###\s+([^\r\n]+)", 
+            "<h4>$1</h4>");
+            
+        // Handle numbered lists - only format when it's clearly a list (multiple items or at line start)
+        // First check if this looks like an actual numbered list
+        var hasMultipleNumbers = System.Text.RegularExpressions.Regex.Matches(response, @"(?:^|\n)\d+\.\s").Count > 1;
+        if (hasMultipleNumbers)
+        {
+            response = System.Text.RegularExpressions.Regex.Replace(
+                response, 
+                @"(?:^|\n)(\d+\.)\s+([^\r\n]+)", 
+                "<br><strong>$1</strong> $2",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+        }
+            
+        // Handle dash/hyphen lists - add line break before dash
+        response = System.Text.RegularExpressions.Regex.Replace(
+            response, 
+            @"^(\s*-\s+)([^\r\n]+)", 
+            "<br>$1$2",
+            System.Text.RegularExpressions.RegexOptions.Multiline);
+            
+        // Normalize line endings and handle various newline combinations
+        response = response
+            .Replace("\r\n", "\n")  // Normalize Windows line endings
+            .Replace("\r", "\n");   // Normalize old Mac line endings
+            
+        // Handle double newlines first (paragraphs)
+        response = response.Replace("\n\n", "<br><br>");
+        
+        // Handle single newlines
+        response = response.Replace("\n", "<br>");
+        
+        // Handle bullet points
+        response = response.Replace("•", "<br>•");
+        
+        return response.Trim();
     }
     
     // Method to update the cart counter by fetching the current cart and updating the badge
@@ -449,20 +550,14 @@
             
             if (cartSummary != null)
             {
-                // Calculate total number of items in cart
-                int totalItems = cartSummary.Items.Sum(item => item.Quantity);
-                
-                // Update the cart badge using JavaScript interop
-                await JSRuntime.InvokeVoidAsync("updateCartBadge", totalItems);
-                
-                // Notify other components that cart has been updated
-                CartUpdateService.NotifyCartUpdated();
+                // Cart update completed successfully
+                Console.WriteLine("Cart updated successfully");
             }
         }
         catch (Exception ex)
         {
             // Silently handle errors - we don't want to disturb the chat experience if cart update fails
-            Console.WriteLine($"Error updating cart counter: {ex.Message}");
+            Console.WriteLine($"Error updating cart: {ex.Message}");
         }
     }
     
@@ -483,6 +578,8 @@
     {
         if (firstRender)
         {
+            Console.WriteLine($"OnAfterRenderAsync (firstRender) - ThreadId: {currentThreadId ?? "null"}, ChatHistory Count: {chatHistory.Count}");
+            
             // Register JS function for scrolling
             await JSRuntime.InvokeVoidAsync("eval", @"
                 window.scrollToBottom = function(elementId) {
@@ -493,8 +590,23 @@
                 }
             ");
             
-            // Load chat history asynchronously after the first render for better performance
-            await LoadChatHistoryAsync();
+            // Check if we need to reload the thread ID from the service
+            var serviceThreadId = AgentModeService.CurrentThreadId;
+            if (!string.IsNullOrEmpty(serviceThreadId) && currentThreadId != serviceThreadId)
+            {
+                Console.WriteLine($"Thread ID mismatch detected. Service: {serviceThreadId}, Local: {currentThreadId ?? "null"}. Updating...");
+                currentThreadId = serviceThreadId;
+                await LoadChatHistoryAsync();
+            }
+            
+            // Only trigger fallback loading if we truly have a loading message still showing
+            if (!isLoadingHistory && !string.IsNullOrEmpty(currentThreadId) && 
+                chatHistory.Count == 1 && 
+                chatHistory[0].Content == "Loading conversation history...")
+            {
+                Console.WriteLine("Fallback history loading triggered in OnAfterRenderAsync - still showing loading message");
+                await LoadChatHistoryAsync();
+            }
         }
         
         // Scroll to bottom whenever component rerenders
@@ -516,5 +628,60 @@
         public required string Description { get; set; }
 
         public Product GetProduct(int Id) => products.Find(products => products.Id == Id) ?? throw new InvalidOperationException("Product not found");
+    }
+    
+    // Event handler for thread ID changes
+    private async void OnThreadIdChanged(string? newThreadId)
+    {
+        Console.WriteLine($"OnThreadIdChanged: {newThreadId ?? "null"} (current: {currentThreadId ?? "null"})");
+        
+        // Only update if the thread ID actually changed
+        if (currentThreadId != newThreadId)
+        {
+            Console.WriteLine($"Thread ID actually changed from '{currentThreadId ?? "null"}' to '{newThreadId ?? "null"}'");
+            currentThreadId = newThreadId;
+            
+            await InvokeAsync(async () =>
+            {
+                if (!string.IsNullOrEmpty(currentThreadId))
+                {
+                    // Clear current history and load new thread history
+                    Console.WriteLine("Clearing history and loading new thread");
+                    chatHistory.Clear();
+                    chatHistory.Add(new ChatMessage
+                    {
+                        Content = "Loading conversation history...",
+                        IsUser = false,
+                        Timestamp = DateTime.Now
+                    });
+                    StateHasChanged();
+                    
+                    await LoadChatHistoryAsync();
+                }
+                else
+                {
+                    // No thread, start fresh
+                    Console.WriteLine("No thread ID - starting fresh");
+                    chatHistory.Clear();
+                    chatHistory.Add(new ChatMessage
+                    {
+                        Content = "Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?",
+                        IsUser = false,
+                        Timestamp = DateTime.Now
+                    });
+                    StateHasChanged();
+                }
+            });
+        }
+        else
+        {
+            Console.WriteLine("Thread ID unchanged - no action needed");
+        }
+    }
+    
+    // Clean up event subscription
+    public void Dispose()
+    {
+        AgentModeService.ThreadIdChanged -= OnThreadIdChanged;
     }
 }
