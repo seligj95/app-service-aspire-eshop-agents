@@ -329,9 +329,8 @@
                 totalCost = 0;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"Error loading cart: {ex.Message}");
             cartItems = new List<CartItem>();
             totalCost = 0;
         }
@@ -376,12 +375,12 @@
             else
             {
                 var errorMessage = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error: {errorMessage}");
+                // Error updating quantity - silently handle
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"Error updating quantity: {ex.Message}");
+            // Error updating quantity - silently handle
         }
         isLoading = false;
     }    private async Task DecreaseQuantity(CartItem item)
@@ -404,9 +403,9 @@
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"Error updating quantity: {ex.Message}");
+            // Error updating quantity - silently handle
         }
         isLoading = false;
     }    private async Task RemoveItem(CartItem item)
@@ -425,9 +424,9 @@
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"Error removing item: {ex.Message}");
+            // Error removing item - silently handle
         }
         isLoading = false;
     }    private async Task ClearCart()
@@ -451,9 +450,9 @@
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"Error clearing cart: {ex.Message}");
+            // Error clearing cart - silently handle
         }
         isLoading = false;
     }

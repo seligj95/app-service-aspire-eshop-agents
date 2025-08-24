@@ -264,8 +264,6 @@
         // Always try to get the current thread ID and load history
         currentThreadId = AgentModeService.CurrentThreadId;
         
-        Console.WriteLine($"OnInitializedAsync - ThreadId: {currentThreadId ?? "null"}");
-        
         if (!string.IsNullOrEmpty(currentThreadId))
         {
             // Clear any existing history first
@@ -310,9 +308,7 @@
             
             try
             {
-                Console.WriteLine($"Loading chat history for thread: {currentThreadId}");
                 var history = await AgentService.GetThreadHistoryAsync(currentThreadId);
-                Console.WriteLine($"Loaded {history.Count} messages from history");
                 
                 // Update the chat history on the UI thread
                 await InvokeAsync(() => {
@@ -322,12 +318,10 @@
                     {
                         // Add loaded history - we have actual conversation history
                         chatHistory.AddRange(history);
-                        Console.WriteLine($"Chat history loaded successfully. Total messages in UI: {chatHistory.Count}");
                     }
                     else
                     {
                         // No messages in thread yet, but thread exists - this is a new conversation
-                        Console.WriteLine("Thread exists but no messages yet - starting new conversation");
                         chatHistory.Add(new ChatMessage
                         {
                             Content = "Hello! I'm your AI shopping assistant. How can I help you with your fashion needs today?",
@@ -339,9 +333,8 @@
                     StateHasChanged();
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"Error loading chat history: {ex.Message}");
                 // If there's an error loading history, show a friendly message
                 await InvokeAsync(() => {
                     chatHistory.Clear();
@@ -362,7 +355,6 @@
         else if (string.IsNullOrEmpty(currentThreadId))
         {
             // No thread ID - start fresh
-            Console.WriteLine("No thread ID available - starting fresh conversation");
             await InvokeAsync(() => {
                 chatHistory.Clear();
                 chatHistory.Add(new ChatMessage
@@ -551,13 +543,11 @@
             if (cartSummary != null)
             {
                 // Cart update completed successfully
-                Console.WriteLine("Cart updated successfully");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Silently handle errors - we don't want to disturb the chat experience if cart update fails
-            Console.WriteLine($"Error updating cart: {ex.Message}");
         }
     }
     
@@ -578,8 +568,6 @@
     {
         if (firstRender)
         {
-            Console.WriteLine($"OnAfterRenderAsync (firstRender) - ThreadId: {currentThreadId ?? "null"}, ChatHistory Count: {chatHistory.Count}");
-            
             // Register JS function for scrolling
             await JSRuntime.InvokeVoidAsync("eval", @"
                 window.scrollToBottom = function(elementId) {
@@ -594,7 +582,6 @@
             var serviceThreadId = AgentModeService.CurrentThreadId;
             if (!string.IsNullOrEmpty(serviceThreadId) && currentThreadId != serviceThreadId)
             {
-                Console.WriteLine($"Thread ID mismatch detected. Service: {serviceThreadId}, Local: {currentThreadId ?? "null"}. Updating...");
                 currentThreadId = serviceThreadId;
                 await LoadChatHistoryAsync();
             }
@@ -604,7 +591,6 @@
                 chatHistory.Count == 1 && 
                 chatHistory[0].Content == "Loading conversation history...")
             {
-                Console.WriteLine("Fallback history loading triggered in OnAfterRenderAsync - still showing loading message");
                 await LoadChatHistoryAsync();
             }
         }
@@ -633,12 +619,9 @@
     // Event handler for thread ID changes
     private async void OnThreadIdChanged(string? newThreadId)
     {
-        Console.WriteLine($"OnThreadIdChanged: {newThreadId ?? "null"} (current: {currentThreadId ?? "null"})");
-        
         // Only update if the thread ID actually changed
         if (currentThreadId != newThreadId)
         {
-            Console.WriteLine($"Thread ID actually changed from '{currentThreadId ?? "null"}' to '{newThreadId ?? "null"}'");
             currentThreadId = newThreadId;
             
             await InvokeAsync(async () =>
@@ -646,7 +629,6 @@
                 if (!string.IsNullOrEmpty(currentThreadId))
                 {
                     // Clear current history and load new thread history
-                    Console.WriteLine("Clearing history and loading new thread");
                     chatHistory.Clear();
                     chatHistory.Add(new ChatMessage
                     {
@@ -661,7 +643,6 @@
                 else
                 {
                     // No thread, start fresh
-                    Console.WriteLine("No thread ID - starting fresh");
                     chatHistory.Clear();
                     chatHistory.Add(new ChatMessage
                     {
@@ -672,10 +653,6 @@
                     StateHasChanged();
                 }
             });
-        }
-        else
-        {
-            Console.WriteLine("Thread ID unchanged - no action needed");
         }
     }
     

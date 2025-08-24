@@ -309,7 +309,6 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 - add mcp agent to view inventory
 - add auth to mcp server
 - make long system prompt for main agent
-- keep past messages when move between tabs -
 
 
 Multi-Agent System Architecture Plan

@@ -17,12 +17,10 @@ namespace dotnetfashionassistant.Services
         { 
             get 
             {
-                Console.WriteLine($"AgentModeService.CurrentThreadId GET: {_currentThreadId ?? "null"}");
                 return _currentThreadId;
             }
             set 
             {
-                Console.WriteLine($"AgentModeService.CurrentThreadId SET: {value ?? "null"} (was: {_currentThreadId ?? "null"})");
                 _currentThreadId = value;
                 ThreadIdChanged?.Invoke(value);
             }
@@ -38,7 +36,6 @@ namespace dotnetfashionassistant.Services
         /// </summary>
         public void ClearCurrentThread()
         {
-            Console.WriteLine("AgentModeService.ClearCurrentThread called");
             CurrentThreadId = null;
         }
     }
