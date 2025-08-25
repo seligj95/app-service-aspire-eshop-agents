@@ -38,6 +38,32 @@ The application consists of:
 - Azure subscription
 - Visual Studio 2022 or Visual Studio Code
 
+## Quick Start
+
+**Before running this application, you'll need to deploy the inventory service:**
+
+1. **Deploy the Inventory API**:
+   ```bash
+   git clone https://github.com/seligj95/app-service-python-mcp-inventory.git
+   cd app-service-python-mcp-inventory
+   azd up
+   ```
+   📝 **Save the deployed URL** - you'll need it for configuration.
+
+2. **Deploy this Fashion Assistant App**:
+   ```bash
+   git clone <this-repository>
+   cd ai-agent-openai-web-app
+   azd up
+   ```
+
+3. **Configure the Inventory URL**:
+   - Go to Azure Portal → Your App Service → Configuration
+   - Update `EXTERNAL_INVENTORY_API_URL` with your inventory service URL
+   - Save and restart the app
+
+Your fashion assistant with real-time inventory is now ready! 🎉
+
 ## Local Development with Aspire
 
 For the best development experience, use the .NET Aspire AppHost to run the application locally:
@@ -48,7 +74,16 @@ For the best development experience, use the .NET Aspire AppHost to run the appl
    dotnet workload update
    dotnet workload install aspire
    ```
-3. **Run the AppHost project**:
+3. **Configure the external inventory API** (required for inventory functionality):
+   
+   Create a `.env` file in the root directory with the following content:
+   ```env
+   EXTERNAL_INVENTORY_API_URL=https://your-inventory-api.azurewebsites.net
+   ```
+   
+   Replace `https://your-inventory-api.azurewebsites.net` with the actual URL of your external inventory API.
+
+4. **Run the AppHost project**:
    ```bash
    cd src/ai-agent-openai-web-app.AppHost
    dotnet run
@@ -59,6 +94,61 @@ This will:
 - Start the web application with enhanced telemetry and health checks
 - Provide real-time monitoring, logging, and service discovery
 - Enable hot reload and enhanced debugging capabilities
+- Connect to your external inventory API for real-time product data
+
+### Environment Variables for Local Development
+
+The following environment variables can be configured in your `.env` file:
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `EXTERNAL_INVENTORY_API_URL` | URL of your external inventory API | Yes | `https://my-inventory.azurewebsites.net` |
+
+**Note**: Without the `EXTERNAL_INVENTORY_API_URL` environment variable, the inventory page will show a loading state followed by an empty inventory message.
+
+### Inventory API Requirements
+
+This application requires an external inventory API to provide product data. We recommend deploying the provided inventory service:
+
+**📦 Deploy the Inventory Service:**
+1. **Clone the inventory repository**:
+   ```bash
+   git clone https://github.com/seligj95/app-service-python-mcp-inventory.git
+   cd app-service-python-mcp-inventory
+   ```
+
+2. **Deploy to Azure**:
+   ```bash
+   azd up
+   ```
+
+3. **Note the deployed URL** (e.g., `https://your-inventory-app.azurewebsites.net`) - you'll need this for configuration.
+
+**API Format:**
+The inventory API exposes an endpoint at `/api/inventory` that returns JSON in the following format:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Product Name",
+    "category": "Category",
+    "price": 29.99,
+    "description": "Product description",
+    "sizes": {
+      "XS": 5,
+      "S": 10,
+      "M": 15,
+      "L": 8,
+      "XL": 3,
+      "XXL": 0,
+      "XXXL": 2
+    }
+  }
+]
+```
+
+The application will automatically map this external format to the internal inventory structure.
 
 The Aspire dashboard provides:
 - **Real-time logs** from all services
@@ -92,8 +182,21 @@ Deploy the Aspire-enhanced application to Azure App Service:
    - Deploy the application to Azure App Service with health check endpoints
    - Configure managed identity for secure AI Foundry access
    - Automatically configure app settings for agent connectivity
+   - Set the `EXTERNAL_INVENTORY_API_URL` to a placeholder value that **must be manually updated**
 
-The deployment process takes approximately 5-10 minutes. Once complete, your application will include:
+### Post-Deployment Configuration
+
+**Important**: After deployment, you must manually configure the external inventory API URL:
+
+1. **Navigate to your App Service** in the Azure Portal
+2. **Go to Configuration** → Application Settings
+3. **Find the `EXTERNAL_INVENTORY_API_URL` setting** (it will be set to `https://<YOUR-INVENTORY-APP-NAME>.azurewebsites.net`)
+4. **Update the value** to your actual inventory API URL (e.g., `https://my-inventory-api.azurewebsites.net`)
+5. **Save the changes** and restart the App Service
+
+Until you complete this configuration, the inventory page will display a message asking you to configure the app setting.
+
+The deployment process takes approximately 5-10 minutes. Once complete and properly configured, your application will include:
 - **Enhanced telemetry** and monitoring capabilities
 - **Health check endpoints** at `/health` and `/alive`
 - **Production-ready logging** and metrics
@@ -195,20 +298,27 @@ This application showcases the benefits of .NET Aspire for modern cloud-native d
 
 ### Common Issues
 
-1. **Chat Not Working**
+1. **Inventory Not Loading**
+   - **Missing Inventory Service**: Ensure you've deployed the inventory service from https://github.com/seligj95/app-service-python-mcp-inventory
+   - **Local Development**: Ensure you have created a `.env` file with the correct `EXTERNAL_INVENTORY_API_URL` pointing to your deployed inventory service
+   - **Azure Deployment**: Check that you've updated the `EXTERNAL_INVENTORY_API_URL` app setting from the placeholder to your actual inventory API URL
+   - **API Issues**: Verify your inventory API is accessible and returns data in the expected format at `/api/inventory`
+   - **Network Issues**: Ensure there are no CORS or firewall restrictions blocking access to your inventory API
+
+2. **Chat Not Working**
    - The agent is now created automatically on first use. If you still experience issues:
    - Check the application logs in Azure App Service for any agent creation errors.
    - Verify that the Azure AI Foundry resources are properly provisioned.
    - Ensure the managed identity has proper permissions to access Azure AI Foundry.
 
-2. **Permission Issues**
+3. **Permission Issues**
    - If you encounter authentication errors, ensure that your App Service's managed identity has proper permissions to access Azure AI Foundry. The managed identity needs the appropriate cognitive services permissions.
 
-3. **API Issues**
+4. **API Issues**
    - If the agent is unable to perform actions on the inventory or cart, the OpenAPI tool should be automatically configured.
    - Verify that the API endpoints are responding correctly by testing them directly in the Swagger UI at `/api/docs`.
 
-4. **Aspire Development Issues**
+5. **Aspire Development Issues**
    - If the Aspire dashboard doesn't load, ensure you have the latest .NET 9 SDK and Aspire workload installed.
    - Check that all project references are correctly configured between AppHost, ServiceDefaults, and the web application.
    - Verify that the required Aspire NuGet packages are installed and up to date.
@@ -305,55 +415,7 @@ Beyond basic interactions, the AI agent can handle more complex scenarios:
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
 
 <!-- ## TODO
-- update inventory so that it matches what we have here
 - add mcp agent to view inventory
 - add auth to mcp server
 - make long system prompt for main agent
-
-
-Multi-Agent System Architecture Plan
-Overview
-Your proposed 4-agent system is well-designed and follows best practices for specialization and separation of concerns:
-
-Main Orchestrator Agent - Intent classification and delegation (no tools)
-Cart Manager Agent - Cart operations using OpenAPI tool
-Fashion Advisor Agent - General fashion advice (no tools)
-Content Moderator Agent - Content validation and filtering (no tools)
-Detailed Agent Specifications
-1. Main Orchestrator Agent
-Role: Central coordinator and intent classifier
-Tools: None (uses Connected Agents only)
-Responsibilities:
-Analyze user input to determine intent
-Route requests to appropriate specialized agents
-Compile responses from connected agents
-Maintain conversation context
-Instructions: "You are a fashion store assistant coordinator. Analyze user requests and delegate to the appropriate specialist: cart management, fashion advice, or content validation."
-2. Cart Manager Agent
-Role: Shopping cart operations specialist
-Tools: OpenAPI tool (using your swagger.json)
-Responsibilities:
-Add/remove items from cart
-Update quantities
-View cart contents and totals
-Check inventory availability
-Server URL: Will be dynamically configured from deployed App Service URL
-Instructions: "You specialize in shopping cart management. Use the available tools to help customers manage their cart, check inventory, and handle shopping operations."
-3. Fashion Advisor Agent
-Role: Fashion expert and stylist
-Tools: None (knowledge-based only)
-Responsibilities:
-Provide style recommendations
-Suggest outfit coordination
-Give fashion tips and trends
-Help with sizing and fit guidance
-Instructions: "You are a fashion expert providing style advice, outfit recommendations, and fashion tips. Focus on general fashion knowledge without accessing specific inventory or cart data."
-4. Content Moderator Agent
-Role: Content validation and safety
-Tools: None (rule-based validation)
-Responsibilities:
-Validate conversation relevance to fashion store
-Filter inappropriate content
-Ensure responses stay within scope
-Reject off-topic requests
-Instructions: "You validate that all conversations are relevant to the fashion store. Reject requests about unrelated topics and ensure appropriate content only." -->
+- upgrade to pv4 -->

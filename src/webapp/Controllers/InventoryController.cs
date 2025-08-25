@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using dotnetfashionassistant.Models;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace dotnetfashionassistant.Controllers
 {
@@ -10,15 +11,23 @@ namespace dotnetfashionassistant.Controllers
     [Produces("application/json")]
     public class InventoryController : ControllerBase
     {
+        private readonly InventoryService _inventoryService;
+
+        public InventoryController(InventoryService inventoryService)
+        {
+            _inventoryService = inventoryService;
+        }
+
         /// <summary>
         /// Gets all inventory items
         /// </summary>
         /// <returns>A list of all inventory items with their sizes and quantities</returns>
         [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<InventoryItem>), 200)]
-        public ActionResult<IEnumerable<InventoryItem>> GetInventory()
+        public async Task<ActionResult<IEnumerable<InventoryItem>>> GetInventory()
         {
-            return Ok(InventoryService.GetInventory());
+            var inventory = await _inventoryService.GetInventoryAsync();
+            return Ok(inventory);
         }
 
         /// <summary>
@@ -29,9 +38,10 @@ namespace dotnetfashionassistant.Controllers
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(InventoryItem), 200)]
         [ProducesResponseType(404)]
-        public ActionResult<InventoryItem> GetInventoryItem(int id)
+        public async Task<ActionResult<InventoryItem>> GetInventoryItem(int id)
         {
-            var item = InventoryService.GetInventory().FirstOrDefault(i => i.ProductId == id);
+            var inventory = await _inventoryService.GetInventoryAsync();
+            var item = inventory.FirstOrDefault(i => i.ProductId == id);
             
             if (item == null)
             {
@@ -50,9 +60,10 @@ namespace dotnetfashionassistant.Controllers
         [HttpGet("{id}/size/{size}")]
         [ProducesResponseType(typeof(SizeInventoryResponse), 200)]
         [ProducesResponseType(404)]
-        public ActionResult<SizeInventoryResponse> GetSizeInventory(int id, string size)
+        public async Task<ActionResult<SizeInventoryResponse>> GetSizeInventory(int id, string size)
         {
-            var item = InventoryService.GetInventory().FirstOrDefault(i => i.ProductId == id);
+            var inventory = await _inventoryService.GetInventoryAsync();
+            var item = inventory.FirstOrDefault(i => i.ProductId == id);
             
             if (item == null)
             {

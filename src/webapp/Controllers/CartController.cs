@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using dotnetfashionassistant.Models;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace dotnetfashionassistant.Controllers
 {
@@ -9,7 +10,15 @@ namespace dotnetfashionassistant.Controllers
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class CartController : ControllerBase
-    {        /// <summary>
+    {
+        private readonly InventoryService _inventoryService;
+
+        public CartController(InventoryService inventoryService)
+        {
+            _inventoryService = inventoryService;
+        }
+
+        /// <summary>
         /// Gets all items in the shopping cart along with the total cost
         /// </summary>
         /// <returns>A cart summary containing items and total cost</returns>
@@ -26,7 +35,7 @@ namespace dotnetfashionassistant.Controllers
         [HttpPost("add")]
         [ProducesResponseType(typeof(CartSummary), 200)]
         [ProducesResponseType(400)]
-        public ActionResult<CartSummary> AddToCart(AddToCartRequest request)
+        public async Task<ActionResult<CartSummary>> AddToCart(AddToCartRequest request)
         {
             // Validate request
             if (request.Quantity <= 0)
@@ -35,7 +44,8 @@ namespace dotnetfashionassistant.Controllers
             }
 
             // Check if the product exists and is in stock
-            var product = InventoryService.GetInventory().FirstOrDefault(i => i.ProductId == request.ProductId);
+            var inventory = await _inventoryService.GetInventoryAsync();
+            var product = inventory.FirstOrDefault(i => i.ProductId == request.ProductId);
             if (product == null)
             {
                 return BadRequest("Product not found");
@@ -64,13 +74,14 @@ namespace dotnetfashionassistant.Controllers
         [ProducesResponseType(typeof(CartSummary), 200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
-        public ActionResult<CartSummary> UpdateCartItemQuantity(int productId, string size, UpdateQuantityRequest request)
+        public async Task<ActionResult<CartSummary>> UpdateCartItemQuantity(int productId, string size, UpdateQuantityRequest request)
         {
             // Check if trying to update to a positive quantity
             if (request.Quantity > 0)
             {
                 // Check if the product exists and has enough stock
-                var product = InventoryService.GetInventory().FirstOrDefault(i => i.ProductId == productId);
+                var inventory = await _inventoryService.GetInventoryAsync();
+                var product = inventory.FirstOrDefault(i => i.ProductId == productId);
                 if (product == null)
                 {
                     return BadRequest("Product not found");

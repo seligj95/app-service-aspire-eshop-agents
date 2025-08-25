@@ -23,6 +23,16 @@ builder.Services.AddHttpClient("LocalApi", (serviceProvider, client) =>
     client.BaseAddress = new Uri(baseUrl);
 });
 
+// HttpClient for external inventory API
+builder.Services.AddHttpClient<dotnetfashionassistant.Models.InventoryService>(client =>
+{
+    // HttpClient will be configured within the InventoryService using the app setting
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// Register InventoryService
+builder.Services.AddScoped<dotnetfashionassistant.Models.InventoryService>();
+
 builder.Services.AddBlazorBootstrap();
 
 // Register the Multi-Agent Orchestration Service 

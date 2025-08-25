@@ -27,6 +27,9 @@ param modelSkuName string = 'GlobalStandard'
 @description('Model deployment capacity')
 param modelCapacity int = 50
 
+@description('External inventory API URL - must be configured after deployment')
+param externalInventoryApiUrl string = 'https://<YOUR-INVENTORY-APP-NAME>.azurewebsites.net'
+
 // Load abbreviations
 var abbrs = loadJsonContent('./abbreviations.json')
 
@@ -122,6 +125,7 @@ module web './core/host/appservice.bicep' = {
       AI_PROJECT_ENDPOINT: 'https://${aiServiceName}.services.ai.azure.com/api/projects/${aiProject.name}'
       AI_SERVICES_ENDPOINT: aiFoundryResource.properties.endpoint
       AI_MODEL_DEPLOYMENT_NAME: deploymentName
+      EXTERNAL_INVENTORY_API_URL: externalInventoryApiUrl
     }
   }
 }

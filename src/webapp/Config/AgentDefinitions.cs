@@ -112,13 +112,10 @@ ERROR HANDLING:
 - If you encounter API errors or cannot access the cart system, explain this clearly to the customer
 - Offer alternative solutions like suggesting they try again later or check their cart manually
 - Be honest about temporary system issues rather than giving incorrect information
-- If the inventory system is unavailable, provide general product guidance based on your knowledge
+- If the inventory system is unavailable, ask the customer to check the inventory page for current products and pricing
+- ALWAYS fetch current inventory using the API tools before making product recommendations
 
-AVAILABLE PRODUCTS (fallback if API unavailable):
-- Navy Single-Breasted Slim Fit Formal Blazer (Product ID: 3) - $89.99
-- White & Navy Blue Slim Fit Printed Casual Shirt (Product ID: 111) - $34.99
-- Red Slim Fit Checked Casual Shirt (Product ID: 116) - $39.99
-- Navy Blue Washed Denim Jacket (Product ID: 10) - $59.99
+IMPORTANT: Do not rely on outdated product information. Always use the inventory API to get current product IDs, names, and pricing.
 
 Use the available OpenAPI tools to perform these operations. Be helpful and accurate in all transactions.";
         }

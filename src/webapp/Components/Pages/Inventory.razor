@@ -6,6 +6,7 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject InventoryService InventoryService
 @rendermode InteractiveServer
 
 <PageTitle>Fashion Store Inventory</PageTitle>
@@ -46,18 +47,36 @@
         }    </div>
 
     <div class="product-grid">
-        @foreach (var item in inventory)
+        @if (inventory == null)
         {
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>Loading inventory...</p>
+            </div>
+        }
+        else if (inventory.Count == 0)
+        {
+            <div class="alert alert-warning" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                No inventory items found. Please check the EXTERNAL_INVENTORY_API_URL app setting.
+            </div>
+        }
+        else
+        {
+            @foreach (var item in inventory)
+            {
             <div class="product-card">
                 <div class="product-image">
-                    <img src="@GetProductImageUrl(item.ProductId)" alt="@item.ProductName" />
+                    <img src="@GetProductImageUrl(item)" alt="@item.ProductName" />
                 </div>                <div class="product-info">
                     <h3 class="product-name">@item.ProductName</h3>
                     <div class="product-price">$@item.Price.ToString("0.00")</div>
                       <div class="product-sizes">
                         <span class="size-label">Available Sizes:</span>
                         <div class="size-badges">
-                            @foreach (var size in InventoryService.GetSizes())
+                            @foreach (var size in InventoryService.GetAvailableSizes())
                             {
                                 @if (item.SizeInventory[size] > 0)
                                 {
@@ -109,6 +128,7 @@
                     </div>
                 </div>
             </div>
+        }
         }
     </div>
 </div>
@@ -304,7 +324,7 @@
 </style>
 
 @code {
-    private List<InventoryItem> inventory = null!;
+    private List<InventoryItem>? inventory = null;
     private Dictionary<int, string> selectedSizes = new Dictionary<int, string>();
     private Dictionary<int, int> quantities = new Dictionary<int, int>();
     private bool showSuccessToast = false;
@@ -312,16 +332,24 @@
     private HttpClient client = null!;
     private string lastAddedItem = "";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        inventory = InventoryService.GetInventory();
-        client = HttpClientFactory.CreateClient("LocalApi");
-        
-        // Initialize size selections and quantities
-        foreach (var item in inventory)
+        try
         {
-            selectedSizes[item.ProductId] = "";
-            quantities[item.ProductId] = 1;
+            inventory = await InventoryService.GetInventoryAsync();
+            client = HttpClientFactory.CreateClient("LocalApi");
+            
+            // Initialize size selections and quantities
+            foreach (var item in inventory)
+            {
+                selectedSizes[item.ProductId] = "";
+                quantities[item.ProductId] = 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load inventory: {ex.Message}";
+            inventory = new List<InventoryItem>();
         }
     }
 
@@ -394,23 +422,22 @@
             
         quantities[productId] = quantity;
     }
-      private string GetProductImageUrl(int productId)
+    private string GetProductImageUrl(InventoryItem item)
     {
-        // Map product IDs to specific image files that match the product descriptions
-        switch (productId)
-        {
-            case 3:
-                return "/images/products/navy-blazer.jpeg"; // Navy Single-Breasted Slim Fit Formal Blazer
-            case 111:
-                return "/images/products/white-navy-shirt.jpeg"; // White & Navy Blue Slim Fit Printed Casual Shirt
-            case 116:
-                return "/images/products/red-checked-shirt.jpeg"; // Red Slim Fit Checked Casual Shirt
-            case 10:
-                return "/images/products/denim-jacket.jpeg"; // Navy Blue Washed Denim Jacket
-            default:
-                // Fallback to a placeholder if the product ID is not recognized
-                return $"https://picsum.photos/seed/{productId}/400/228";
-        }
+        // Map product names to specific image files
+        var productName = item.ProductName.ToLower();
+        
+        if (productName.Contains("blazer") && productName.Contains("navy"))
+            return "/images/products/navy-blazer.jpeg";
+        else if (productName.Contains("shirt") && productName.Contains("white") && productName.Contains("navy"))
+            return "/images/products/white-navy-shirt.jpeg";
+        else if (productName.Contains("shirt") && productName.Contains("red") && productName.Contains("checked"))
+            return "/images/products/red-checked-shirt.jpeg";
+        else if (productName.Contains("jacket") && productName.Contains("denim"))
+            return "/images/products/denim-jacket.jpeg";
+        else
+            // Fallback to a placeholder if no matching image is found
+            return $"https://picsum.photos/seed/{item.ProductId}/400/228";
     }
     
     private async Task AddToCart(InventoryItem item)

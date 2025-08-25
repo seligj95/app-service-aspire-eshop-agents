@@ -46,7 +46,7 @@
                 {
                     <div class="cart-item">
                         <div class="cart-item-image">
-                            <img src="@GetProductImageUrl(item.ProductId)" alt="@item.ProductName" />
+                            <img src="@GetProductImageUrl(item.ProductName, item.ProductId)" alt="@item.ProductName" />
                         </div>
                         <div class="cart-item-details">                            <h3>@item.ProductName</h3>
                             <div class="cart-item-meta">
@@ -335,23 +335,24 @@
             totalCost = 0;
         }
         isLoading = false;
-    }    private string GetProductImageUrl(int productId)
+    }
+    
+    private string GetProductImageUrl(string productName, int productId)
     {
-        // Map product IDs to specific image files that match the product descriptions
-        switch (productId)
-        {
-            case 3:
-                return "/images/products/navy-blazer.jpeg"; // Navy Single-Breasted Slim Fit Formal Blazer
-            case 111:
-                return "/images/products/white-navy-shirt.jpeg"; // White & Navy Blue Slim Fit Printed Casual Shirt
-            case 116:
-                return "/images/products/red-checked-shirt.jpeg"; // Red Slim Fit Checked Casual Shirt
-            case 10:
-                return "/images/products/denim-jacket.jpeg"; // Navy Blue Washed Denim Jacket
-            default:
-                // Fallback to a placeholder if the product ID is not recognized
-                return $"https://picsum.photos/seed/{productId}/400/228";
-        }
+        // Map product names to specific image files
+        var name = productName.ToLower();
+        
+        if (name.Contains("blazer") && name.Contains("navy"))
+            return "/images/products/navy-blazer.jpeg";
+        else if (name.Contains("shirt") && name.Contains("white") && name.Contains("navy"))
+            return "/images/products/white-navy-shirt.jpeg";
+        else if (name.Contains("shirt") && name.Contains("red") && name.Contains("checked"))
+            return "/images/products/red-checked-shirt.jpeg";
+        else if (name.Contains("jacket") && name.Contains("denim"))
+            return "/images/products/denim-jacket.jpeg";
+        else
+            // Fallback to a placeholder if no matching image is found
+            return $"https://picsum.photos/seed/{productId}/400/228";
     }private decimal CalculateSubtotal()
     {
         return cartItems.Sum(item => item.Quantity * item.Price);
