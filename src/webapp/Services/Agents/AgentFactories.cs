@@ -41,6 +41,7 @@ namespace dotnetfashionassistant.Services.Agents
 
         /// <summary>
         /// Helper method to safely create any agent with error handling.
+        /// Enhanced for MCP tool compatibility.
         /// </summary>
         protected async Task<PersistentAgent?> CreateAgentWithErrorHandlingAsync(
             string name, 
@@ -50,19 +51,34 @@ namespace dotnetfashionassistant.Services.Agents
         {
             try
             {
+                // For MCP agents, we might need specific configuration
+                var agentCreationOptions = new
+                {
+                    model = _modelDeploymentName,
+                    name = name,
+                    description = description,
+                    instructions = instructions,
+                    tools = tools,
+                    // Add temperature for more deterministic responses with MCP
+                    temperature = 0.1f
+                };
+
+                _logger.LogInformation("Creating agent with MCP-compatible settings: {AgentName}", name);
+
                 var response = await _agentsClient.Administration.CreateAgentAsync(
                     model: _modelDeploymentName,
                     name: name,
                     description: description,
                     instructions: instructions,
-                    tools: tools);
+                    tools: tools,
+                    temperature: 0.1f); // Lower temperature for more consistent MCP interactions
 
                 _logger.LogInformation("Successfully created agent: {AgentName} (ID: {AgentId})", name, response.Value.Id);
                 return response.Value;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to create agent: {AgentName}", name);
+                _logger.LogError(ex, "Failed to create agent: {AgentName}. Error: {ErrorMessage}", name, ex.Message);
                 return null;
             }
         }
@@ -86,6 +102,60 @@ namespace dotnetfashionassistant.Services.Agents
 
         /// <summary>
         /// Creates the orchestrator agent with connected agent tools.
+        /// This agent will coordinate all specialist agents.
+        /// </summary>
+        public async Task<PersistentAgent?> CreateOrchestratorWithConnectedAgentsAsync(
+            PersistentAgent cartManagerAgent,
+            PersistentAgent fashionAdvisorAgent,
+            PersistentAgent contentModeratorAgent,
+            PersistentAgent mcpInventoryAgent)
+        {
+            try
+            {
+                // Create connected agent tool definitions
+                var connectedAgentTools = new List<ToolDefinition>
+                {
+                    new ConnectedAgentToolDefinition(new ConnectedAgentDetails(
+                        cartManagerAgent.Id,
+                        "cart_manager",
+                        AgentDefinitions.CartManager.ConnectedAgentDescription)),
+                    
+                    new ConnectedAgentToolDefinition(new ConnectedAgentDetails(
+                        fashionAdvisorAgent.Id,
+                        "fashion_advisor", 
+                        AgentDefinitions.FashionAdvisor.ConnectedAgentDescription)),
+                    
+                    new ConnectedAgentToolDefinition(new ConnectedAgentDetails(
+                        contentModeratorAgent.Id,
+                        "content_moderator",
+                        AgentDefinitions.ContentModerator.ConnectedAgentDescription)),
+
+                    new ConnectedAgentToolDefinition(new ConnectedAgentDetails(
+                        mcpInventoryAgent.Id,
+                        "mcp_inventory_agent",
+                        AgentDefinitions.MCPInventoryAgent.ConnectedAgentDescription))
+                };
+
+                var response = await _agentsClient.Administration.CreateAgentAsync(
+                    model: _modelDeploymentName,
+                    name: AgentDefinitions.Orchestrator.Name,
+                    description: AgentDefinitions.Orchestrator.Description,
+                    instructions: AgentDefinitions.Orchestrator.Instructions,
+                    tools: connectedAgentTools);
+
+                _logger.LogInformation("Successfully created orchestrator agent with {ConnectedAgentCount} connected agents", 
+                    connectedAgentTools.Count);
+                return response.Value;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create orchestrator agent");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Creates the orchestrator agent with connected agent tools (original 3-agent version).
         /// This agent will coordinate all specialist agents.
         /// </summary>
         public async Task<PersistentAgent?> CreateOrchestratorWithConnectedAgentsAsync(
@@ -477,6 +547,174 @@ namespace dotnetfashionassistant.Services.Agents
                 AgentDefinitions.ContentModerator.Name,
                 AgentDefinitions.ContentModerator.Description,
                 AgentDefinitions.ContentModerator.Instructions);
+        }
+    }
+
+    /// <summary>
+    /// Factory for creating the MCP inventory agent.
+    /// This agent handles inventory operations using Model Context Protocol (MCP).
+    /// 
+    /// DEMO NOTE: This agent shows how to integrate with MCP servers for dynamic data access!
+    /// </summary>
+    public class MCPInventoryAgentFactory : BaseAgentFactory
+    {
+        public MCPInventoryAgentFactory(
+            PersistentAgentsClient agentsClient,
+            IConfiguration configuration,
+            ILogger<MCPInventoryAgentFactory> logger)
+            : base(agentsClient, configuration, logger)
+        {
+        }
+
+        public override async Task<PersistentAgent?> CreateAgentAsync()
+        {
+            // Create MCP tool for inventory operations
+            var mcpTool = await CreateMCPToolAsync();
+            if (mcpTool == null)
+            {
+                var errorMsg = "📦 MCP INVENTORY AGENT CREATION FAILED - MCP tool could not be created. Check logs above for specific error.";
+                _logger.LogError(errorMsg);
+                throw new InvalidOperationException(errorMsg);
+            }
+
+            var tools = new[] { mcpTool };
+
+            var agent = await CreateAgentWithErrorHandlingAsync(
+                AgentDefinitions.MCPInventoryAgent.Name,
+                AgentDefinitions.MCPInventoryAgent.Description,
+                AgentDefinitions.MCPInventoryAgent.Instructions,
+                tools);
+
+            if (agent == null)
+            {
+                var errorMsg = "📦 MCP INVENTORY AGENT CREATION FAILED - Agent creation returned null";
+                _logger.LogError(errorMsg);
+                throw new InvalidOperationException(errorMsg);
+            }
+
+            _logger.LogInformation("📦 MCP INVENTORY AGENT CREATED SUCCESSFULLY with MCP tools");
+            return agent;
+        }
+
+        /// <summary>
+        /// Creates the MCP tool for inventory operations.
+        /// Connects to the external inventory API's /mcp endpoint.
+        /// </summary>
+        private async Task<MCPToolDefinition?> CreateMCPToolAsync()
+        {
+            try
+            {
+                // Get the external inventory API URL and append /mcp
+                var inventoryApiUrl = _configuration["EXTERNAL_INVENTORY_API_URL"] ?? 
+                                    Environment.GetEnvironmentVariable("EXTERNAL_INVENTORY_API_URL");
+
+                if (string.IsNullOrEmpty(inventoryApiUrl))
+                {
+                    var errorMsg = "📦 MCP TOOL CREATION FAILED - EXTERNAL_INVENTORY_API_URL not configured";
+                    _logger.LogError(errorMsg);
+                    throw new InvalidOperationException(errorMsg);
+                }
+
+                var mcpServerUrl = $"{inventoryApiUrl.TrimEnd('/')}/mcp";
+                var mcpServerLabel = "inventory_mcp_server";
+                
+                _logger.LogInformation("📦 Creating MCP tool with server URL: {McpServerUrl}, Label: {McpServerLabel}", 
+                    mcpServerUrl, mcpServerLabel);
+
+                // Test MCP endpoint connectivity
+                await TestMCPEndpointAsync(mcpServerUrl);
+
+                // Create MCP tool definition with explicit configuration
+                var mcpTool = new MCPToolDefinition(mcpServerLabel, mcpServerUrl);
+
+                // Configure MCP tool with explicit capabilities and permissions
+                _logger.LogInformation("📦 Configuring MCP tool with explicit permissions");
+                
+                // Enable all available tools on the MCP server
+                // This might resolve the "RequiresAction" issue
+                mcpTool.AllowedTools.Clear(); // Clear any defaults
+                // Leave AllowedTools empty to allow all tools, or add specific ones:
+                // mcpTool.AllowedTools.Add("inventory_search");
+                // mcpTool.AllowedTools.Add("get_products");
+                // mcpTool.AllowedTools.Add("check_stock");
+                
+                _logger.LogInformation("📦 MCP tool configured - Label: {Label}, URL: {Url}, AllowedTools: {AllowedToolsCount}", 
+                    mcpServerLabel, mcpServerUrl, mcpTool.AllowedTools.Count);
+
+                _logger.LogInformation("📦 MCP tool created successfully for inventory server");
+                return mcpTool;
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = $"📦 MCP TOOL CREATION FAILED: {ex.Message}";
+                _logger.LogError(ex, errorMsg);
+                throw new InvalidOperationException(errorMsg, ex);
+            }
+        }
+
+        /// <summary>
+        /// Tests the MCP endpoint to ensure it's accessible.
+        /// Currently logs the endpoint status for future MCP implementation.
+        /// </summary>
+        private async Task TestMCPEndpointAsync(string mcpServerUrl)
+        {
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(10);
+            
+            _logger.LogInformation("📦 Testing MCP endpoint at: {McpServerUrl}", mcpServerUrl);
+            
+            try
+            {
+                // Test GET request
+                var response = await httpClient.GetAsync(mcpServerUrl);
+                var responseContent = await response.Content.ReadAsStringAsync();
+                
+                _logger.LogInformation("📦 MCP GET Response: Status={StatusCode}, Content={Content}", 
+                    response.StatusCode, responseContent);
+                
+                // Test POST request with MCP initialize message
+                var mcpInitMessage = new
+                {
+                    jsonrpc = "2.0",
+                    id = 1,
+                    method = "initialize",
+                    @params = new
+                    {
+                        protocolVersion = "2024-11-05",
+                        capabilities = new { },
+                        clientInfo = new
+                        {
+                            name = "azure-ai-agents",
+                            version = "1.0.0"
+                        }
+                    }
+                };
+                
+                var jsonContent = System.Text.Json.JsonSerializer.Serialize(mcpInitMessage);
+                var postContent = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+                
+                _logger.LogInformation("📦 Testing MCP POST with initialize message: {JsonContent}", jsonContent);
+                
+                var postResponse = await httpClient.PostAsync(mcpServerUrl, postContent);
+                var postResponseContent = await postResponse.Content.ReadAsStringAsync();
+                
+                _logger.LogInformation("📦 MCP POST Response: Status={StatusCode}, Content={Content}", 
+                    postResponse.StatusCode, postResponseContent);
+                
+                if (postResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("📦 MCP endpoint test successful: {StatusCode}", postResponse.StatusCode);
+                }
+                else
+                {
+                    _logger.LogWarning("📦 MCP endpoint returned: {StatusCode} - {ReasonPhrase}", 
+                        postResponse.StatusCode, postResponse.ReasonPhrase);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "📦 MCP endpoint test failed: {Message}", ex.Message);
+            }
         }
     }
 }

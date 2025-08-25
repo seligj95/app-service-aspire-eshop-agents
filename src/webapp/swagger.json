@@ -1,8 +1,8 @@
 {
     "openapi": "3.0.4",
     "info": {
-        "title": "Fashion Store Inventory API",
-        "description": "API for managing fashion store inventory",
+        "title": "Fashion Store Cart API",
+        "description": "API for managing fashion store shopping cart operations",
         "version": "v1"
     },
     "servers": [
@@ -11,6 +11,30 @@
         }
     ],
     "paths": {
+        "/api/Inventory": {
+            "get": {
+                "tags": [
+                    "Inventory"
+                ],
+                "operationId": "getInventory",
+                "summary": "Gets all available inventory items with current stock levels",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/InventoryItem"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/Cart": {
             "get": {
                 "tags": [
@@ -233,149 +257,6 @@
                     }
                 }
             }
-        },
-        "/api/Inventory": {
-            "get": {
-                "tags": [
-                    "Inventory"
-                ],
-                "operationId": "getAllInventoryItems",
-                "summary": "Gets all inventory items",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/InventoryItem"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/Inventory/{id}": {
-            "get": {
-                "tags": [
-                    "Inventory"
-                ],
-                "operationId": "getInventoryItemById",
-                "summary": "Gets a specific inventory item by product ID",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The product ID to look up",
-                        "required": true,
-                        "schema": {
-                            "type": "integer",
-                            "format": "int32"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/InventoryItem"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ProblemDetails"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/Inventory/{id}/size/{size}": {
-            "get": {
-                "tags": [
-                    "Inventory"
-                ],
-                "operationId": "getInventorySizeCount",
-                "summary": "Gets inventory count for a specific product and size",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The product ID",
-                        "required": true,
-                        "schema": {
-                            "type": "integer",
-                            "format": "int32"
-                        }
-                    },
-                    {
-                        "name": "size",
-                        "in": "path",
-                        "description": "The size to check (e.g., XS, S, M, L, XL, XXL, XXXL)",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/SizeInventoryResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ProblemDetails"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/Inventory/sizes": {
-            "get": {
-                "tags": [
-                    "Inventory"
-                ],
-                "operationId": "getAllAvailableSizes",
-                "summary": "Gets all available sizes",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     },
     "components": {
@@ -451,35 +332,6 @@
                 },
                 "additionalProperties": false
             },
-            "InventoryItem": {
-                "required": [
-                    "productName"
-                ],
-                "type": "object",
-                "properties": {
-                    "productId": {
-                        "type": "integer",
-                        "format": "int32"
-                    },
-                    "productName": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "sizeInventory": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "type": "integer",
-                            "format": "int32"
-                        },
-                        "nullable": true
-                    },
-                    "price": {
-                        "type": "number",
-                        "format": "double"
-                    }
-                },
-                "additionalProperties": false
-            },
             "ProblemDetails": {
                 "type": "object",
                 "properties": {
@@ -507,36 +359,36 @@
                 },
                 "additionalProperties": {}
             },
-            "SizeInventoryResponse": {
+            "InventoryItem": {
                 "required": [
-                    "productName",
-                    "size"
+                    "productName"
                 ],
                 "type": "object",
                 "properties": {
                     "productId": {
                         "type": "integer",
-                        "description": "The product ID",
+                        "description": "The unique product identifier",
                         "format": "int32"
                     },
                     "productName": {
                         "type": "string",
-                        "description": "The product name",
-                        "nullable": true
+                        "description": "The name of the product"
                     },
-                    "size": {
-                        "type": "string",
-                        "description": "The size being queried (e.g., XS, S, M, L, XL, XXL, XXXL)",
-                        "nullable": true
+                    "price": {
+                        "type": "number",
+                        "description": "The price of the product",
+                        "format": "decimal"
                     },
-                    "count": {
-                        "type": "integer",
-                        "description": "The inventory count for the specified product and size",
-                        "format": "int32"
+                    "sizeInventory": {
+                        "type": "object",
+                        "description": "Available stock for each size",
+                        "additionalProperties": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
                     }
                 },
-                "additionalProperties": false,
-                "description": "Represents the response for a size inventory query"
+                "additionalProperties": false
             },
             "UpdateQuantityRequest": {
                 "type": "object",

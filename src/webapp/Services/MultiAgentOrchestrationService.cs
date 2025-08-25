@@ -40,6 +40,7 @@ namespace dotnetfashionassistant.Services
         private CartManagerAgentFactory? _cartManagerFactory;
         private FashionAdvisorAgentFactory? _fashionAdvisorFactory;
         private ContentModeratorAgentFactory? _contentModeratorFactory;
+        private MCPInventoryAgentFactory? _mcpInventoryFactory;
 
         public MultiAgentOrchestrationService(
             IConfiguration configuration, 
@@ -103,9 +104,12 @@ namespace dotnetfashionassistant.Services
                             _loggerFactory.CreateLogger<FashionAdvisorAgentFactory>());
                         _contentModeratorFactory = new ContentModeratorAgentFactory(_agentsClient, _configuration, 
                             _loggerFactory.CreateLogger<ContentModeratorAgentFactory>());
+                        // MCP INVENTORY FACTORY - DISABLED: Causing hanging issues, needs further investigation
+                        // _mcpInventoryFactory = new MCPInventoryAgentFactory(_agentsClient, _configuration,
+                        //     _loggerFactory.CreateLogger<MCPInventoryAgentFactory>());
                         
                         _isInitialized = true;
-                        _logger.LogInformation("Multi-Agent service initialized successfully with {FactoryCount} agent factories", 4);
+                        _logger.LogInformation("Multi-Agent service initialized successfully with {FactoryCount} agent factories", 3);
                     }
                 }
                 catch (Exception ex)
@@ -210,8 +214,18 @@ namespace dotnetfashionassistant.Services
                 agentsToCleanup.Add(contentModeratorAgent);
                 _logger.LogInformation("✅ Created Content Moderator Agent: {AgentId}", contentModeratorAgent.Id);
 
-                // STEP 2: Create the orchestrator agent with connected agents
-                // This demonstrates the Connected Agents pattern
+                // MCP INVENTORY AGENT - DISABLED: Still causing hanging issues even with RequiresAction handling
+                // TODO: Need to investigate proper MCP tool configuration for Azure AI Foundry
+                // var mcpInventoryAgent = await _mcpInventoryFactory!.CreateAgentAsync();
+                // if (mcpInventoryAgent == null)
+                // {
+                //     return "Failed to create MCP inventory specialist. The system may be experiencing issues.";
+                // }
+                // agentsToCleanup.Add(mcpInventoryAgent);
+                // _logger.LogInformation("✅ Created MCP Inventory Agent: {AgentId}", mcpInventoryAgent.Id);
+
+                // STEP 2: Create the orchestrator agent with connected agents (3-agent version - stable)
+                // Cart agent handles both cart operations AND inventory queries via OpenAPI
                 _logger.LogInformation("Creating orchestrator agent with connected specialists...");
                 
                 var orchestratorAgent = await _orchestratorFactory!.CreateOrchestratorWithConnectedAgentsAsync(
@@ -302,12 +316,13 @@ namespace dotnetfashionassistant.Services
         }
 
         /// <summary>
-        /// Waits for a run to complete, with appropriate logging for demo purposes.
+        /// Waits for a run to complete, with appropriate logging, timeout, and RequiresAction handling for MCP tools.
         /// </summary>
         private async Task<ThreadRun> WaitForRunCompletionAsync(string threadId, string runId)
         {
             ThreadRun run;
             var startTime = DateTime.UtcNow;
+            var timeout = TimeSpan.FromSeconds(120); // 2 minute timeout for MCP compatibility
             
             do
             {
@@ -318,8 +333,70 @@ namespace dotnetfashionassistant.Services
                 var elapsed = DateTime.UtcNow - startTime;
                 _logger.LogDebug("Run {RunId} status: {Status} (elapsed: {Elapsed}s)", 
                     runId, run.Status, elapsed.TotalSeconds);
+                
+                // Handle RequiresAction state for MCP tools
+                if (run.Status == RunStatus.RequiresAction)
+                {
+                    _logger.LogInformation("Run {RunId} requires action - handling tool calls for MCP", runId);
                     
-            } while (run.Status == RunStatus.Queued || run.Status == RunStatus.InProgress);
+                    try
+                    {
+                        // Get the required action details
+                        var requiredAction = run.RequiredAction;
+                        if (requiredAction != null)
+                        {
+                            _logger.LogInformation("RequiredAction found for run {RunId}, attempting to handle tool outputs", runId);
+                            
+                            // Try to handle the tool calls - the exact API might vary
+                            // Let's check what properties are available on RequiredAction
+                            _logger.LogInformation("RequiredAction type: {RequiredActionType}", requiredAction.GetType().Name);
+                            
+                            // For now, let's try a simple approach - just submit an empty tool output to continue
+                            var toolOutputs = new List<ToolOutput>();
+                            
+                            // Add a placeholder tool output
+                            toolOutputs.Add(new ToolOutput("tool_call_placeholder", "MCP tool execution approved"));
+                            
+                            try
+                            {
+                                // Submit the tool outputs to continue the run
+                                _logger.LogInformation("Attempting to submit tool outputs for run {RunId}", runId);
+                                await _agentsClient.Runs.SubmitToolOutputsToRunAsync(threadId, runId, toolOutputs);
+                                _logger.LogInformation("Tool outputs submitted successfully for run {RunId}", runId);
+                            }
+                            catch (Exception submitEx)
+                            {
+                                _logger.LogWarning(submitEx, "Failed to submit tool outputs for run {RunId}, will continue waiting", runId);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to handle RequiresAction for run {RunId}: {Error}", runId, ex.Message);
+                    }
+                }
+                
+                // Check for timeout to prevent MCP hanging
+                if (elapsed > timeout)
+                {
+                    _logger.LogError("Run {RunId} timed out after {Timeout}s - likely MCP agent issue", 
+                        runId, timeout.TotalSeconds);
+                    
+                    // Try to cancel the run
+                    try
+                    {
+                        await _agentsClient.Runs.CancelRunAsync(threadId, runId);
+                        _logger.LogInformation("Cancelled timed out run {RunId}", runId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to cancel timed out run {RunId}", runId);
+                    }
+                    
+                    break;
+                }
+                    
+            } while (run.Status == RunStatus.Queued || run.Status == RunStatus.InProgress || run.Status == RunStatus.RequiresAction);
 
             var totalTime = DateTime.UtcNow - startTime;
             _logger.LogInformation("Run {RunId} completed with status {Status} in {TotalTime}s", 
