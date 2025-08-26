@@ -34,6 +34,19 @@ This inventory service provides:
 
 ## Step 2: Deploy the Main Application
 
+**⚠️ Important Regional Requirement:**
+This application uses the [MCP Tool](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/model-context-protocol#how-it-works) which is currently in preview and only available in specific Azure regions. You **must** deploy your Azure AI Foundry resources in one of these supported regions:
+
+- `westus` (West US)
+- `westus2` (West US 2) 
+- `uaenorth` (UAE North)
+- `southindia` (South India)
+- `switzerlandnorth` (Switzerland North)
+
+This region list has been updated as of August 26, 2025. To see the latest list of supported regions, see the [Connect to Model Context Protocol servers (preview) documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/model-context-protocol#how-it-works).
+
+When prompted during `azd up`, make sure to select one of these regions for your deployment.
+
 Clone and deploy this fashion assistant application:
 
 ```bash
