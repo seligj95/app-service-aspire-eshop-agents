@@ -129,7 +129,7 @@ We use a Python script to create **persistent agents** for demo purposes, allowi
 
 We are using a Python script because the Python SDK is the most mature and the Azure Foundry portal does not support creating agents with the MCP tool yet. Once the portal supports MCP tool creation, we will provide guidance for portal setup as well.
 
-**Note:** In production, you might prefer **dynamic agents** that are created on-demand, but persistent agents are perfect for demos and development.
+**Note:** In production, you might prefer **dynamic agents** that are created on-demand, but persistent agents are good for demos and development.
 
 ### Agent Architecture
 
@@ -232,7 +232,7 @@ export WEBAPP_URL='https://your-fashion-app.azurewebsites.net'
 
 # Set your Azure AI Foundry project details (from Step 2 deployment)
 # You can find these in Azure Portal → Resource group → AI Foundry project (make sure you select the project resource and NOT the parent Foundry resource → Resiyrce Management → Endpoints
-export PROJECT_ENDPOINT='https://your-project-name.westus2.api.azureml.ms'
+export PROJECT_ENDPOINT='https://your-foundry-name.services.ai.azure.com/api/projects/your-foundry-project'
 export MODEL_DEPLOYMENT_NAME='gpt-4.1'
 ```
 
@@ -240,7 +240,7 @@ export MODEL_DEPLOYMENT_NAME='gpt-4.1'
 - **EXTERNAL_INVENTORY_URL**: From Step 1 `azd up` output or Azure Portal → Inventory App Service → Overview → Default domain
 - **WEBAPP_URL**: From Step 2 `azd up` output or Azure Portal → Fashion App Service → Overview → Default domain  
 - **PROJECT_ENDPOINT**: Azure Portal → AI Foundry project → Settings → General → "Project details" section
-- **MODEL_DEPLOYMENT_NAME**: Azure Portal → AI Foundry project → Deployments → Model deployments (`gpt-4.1 if you didn't change anything in the Bicep template used by azd`)
+- **MODEL_DEPLOYMENT_NAME**: Azure Portal → AI Foundry project → Deployments → Model deployments (use `gpt-4.1` as the value if you didn't change anything in the Bicep template used by azd)
 
 **Create Python Environment and Run Script:**
 
