@@ -1,0 +1,10 @@
+# Azure AI Foundry and identity dependencies
+azure-ai-projects==1.0.0b12
+azure-ai-agents==1.1.0b4
+azure-identity>=1.15.0
+
+# Azure management dependencies  
+azure-mgmt-web>=7.0.0
+
+# Core dependencies
+requests>=2.31.0
