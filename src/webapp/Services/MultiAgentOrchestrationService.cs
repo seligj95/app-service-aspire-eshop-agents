@@ -8,76 +8,126 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using dotnetfashionassistant.Models;
-using dotnetfashionassistant.Config;
-using dotnetfashionassistant.Services.Agents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace dotnetfashionassistant.Services
 {
     /// <summary>
-    /// Multi-Agent Orchestration Service using Azure AI Foundry.
-    /// Manages 4 specialized agents: Orchestrator, Cart Manager, Fashion Advisor, and Content Moderator.
+    /// Connected Agents Orchestration Service using Azure AI Foundry.
+    /// Uses one main agent with connected specialist agents for seamless collaboration.
+    /// The main agent automatically delegates to connected agents without custom orchestration logic.
     /// </summary>
     public class MultiAgentOrchestrationService
     {
         private readonly string? _projectEndpoint;
+        private readonly string? _mainAgentId;
+        private readonly string? _externalMcpServerUrl;
         private PersistentAgentsClient? _agentsClient;
         private readonly IConfiguration _configuration;
         private readonly ILogger<MultiAgentOrchestrationService> _logger;
-        private readonly ILoggerFactory _loggerFactory;
         private bool _isConfigured = false;
         private bool _isInitialized = false;
         private readonly object _initLock = new object();
         private readonly int _maxCacheEntries = 100;
         
-        // Thread-safe caches for conversation history
+        // Thread-safe caches for conversation history and user threads
         private readonly ConcurrentDictionary<string, List<ChatMessage>> _threadHistoryCache = new();
         private readonly ConcurrentDictionary<string, DateTime> _lastCacheUpdateTime = new();
-
-        // Agent factories - these make agent creation clear and reusable
-        private OrchestratorAgentFactory? _orchestratorFactory;
-        private CartManagerAgentFactory? _cartManagerFactory;
-        private FashionAdvisorAgentFactory? _fashionAdvisorFactory;
-        private ContentModeratorAgentFactory? _contentModeratorFactory;
-        private MCPInventoryAgentFactory? _mcpInventoryFactory;
+        private readonly ConcurrentDictionary<string, string> _userThreads = new(); // UserId -> ThreadId
 
         public MultiAgentOrchestrationService(
             IConfiguration configuration, 
-            ILogger<MultiAgentOrchestrationService> logger,
-            ILoggerFactory loggerFactory)
+            ILogger<MultiAgentOrchestrationService> logger)
         {
             _configuration = configuration;
             _logger = logger;
-            _loggerFactory = loggerFactory;
 
-            // Get configuration values from the AI Foundry environment variables
+            // Get configuration values for persistent agents
             var projectEndpoint = _configuration["AI_PROJECT_ENDPOINT"] ?? 
                                 Environment.GetEnvironmentVariable("AI_PROJECT_ENDPOINT") ??
                                 _configuration.GetConnectionString("AI_PROJECT_ENDPOINT");
             
-            if (!string.IsNullOrEmpty(projectEndpoint))
+            var mainAgentId = _configuration["MAIN_ORCHESTRATOR_AGENT_ID"] ?? 
+                             Environment.GetEnvironmentVariable("MAIN_ORCHESTRATOR_AGENT_ID");
+                                         
+            var externalMcpServerUrl = _configuration["EXTERNAL_MCP_SERVER_URL"] ?? 
+                                      Environment.GetEnvironmentVariable("EXTERNAL_MCP_SERVER_URL");
+            
+            if (!string.IsNullOrEmpty(projectEndpoint) && !string.IsNullOrEmpty(mainAgentId))
             {
                 _projectEndpoint = projectEndpoint;
-            }
-            
-            _isConfigured = !string.IsNullOrEmpty(_projectEndpoint);
-            
-            if (!_isConfigured)
-            {
-                _logger.LogError("Multi-Agent configuration failed: AI_PROJECT_ENDPOINT is missing");
+                _mainAgentId = mainAgentId;
+                _externalMcpServerUrl = externalMcpServerUrl;
+                _isConfigured = true;
+                _logger.LogInformation("Connected Agents service configured successfully with endpoint: {Endpoint}, Main Agent ID: {AgentId}", 
+                    _projectEndpoint, _mainAgentId);
+                    
+                if (!string.IsNullOrEmpty(_externalMcpServerUrl))
+                    _logger.LogInformation("External MCP Server URL configured: {McpServerUrl}", _externalMcpServerUrl);
             }
             else
             {
-                _logger.LogInformation("Multi-Agent service configured successfully with endpoint: {Endpoint}", _projectEndpoint);
+                _isConfigured = false;
+                _logger.LogError("Connected Agents configuration failed - missing required settings:");
+                if (string.IsNullOrEmpty(projectEndpoint)) _logger.LogError("  - AI_PROJECT_ENDPOINT is missing");
+                if (string.IsNullOrEmpty(mainAgentId)) _logger.LogError("  - MAIN_ORCHESTRATOR_AGENT_ID is missing");
             }
         }
         
         /// <summary>
-        /// Lazy initialization of the client and agent factories.
-        /// This ensures everything is set up when actually needed.
-        /// 
-        /// DEMO NOTE: This is where we set up all the agent factories!
+        /// Creates MCP tool resources for the main agent that uses MCP tools for inventory.
+        /// This configures runtime authentication and approval settings for the external MCP server.
+        /// Based on Azure documentation: https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/model-context-protocol-samples
+        /// </summary>
+        private ToolResources? CreateMcpToolResources()
+        {
+            if (string.IsNullOrEmpty(_externalMcpServerUrl))
+            {
+                _logger.LogDebug("No external MCP server URL configured, skipping MCP tool resources");
+                return null;
+            }
+
+            try
+            {
+                // Create MCP tool resource configuration for the external inventory MCP server
+                // The server label must match what was configured when creating the agent
+                var mcpToolResource = new MCPToolResource("inventory_mcp");
+                
+                // Add any required headers for authentication to the external MCP server
+                // In a production environment, you might want to add:
+                // mcpToolResource.UpdateHeader("Authorization", "Bearer " + apiToken);
+                // mcpToolResource.UpdateHeader("X-API-Key", apiKey);
+                
+                // Set approval mode for demo purposes - in production you might want "always"
+                // mcpToolResource.SetApprovalMode("never"); // Uncomment to disable approval requirement
+                
+                // Convert to ToolResources format required by the SDK
+                var toolResources = mcpToolResource.ToToolResources();
+                
+                _logger.LogInformation("Created MCP tool resources for external inventory MCP server with label 'inventory_mcp' pointing to: {McpServerUrl}", _externalMcpServerUrl);
+                return toolResources;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to create MCP tool resources, continuing without them");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Determines if an agent requires MCP tool resources.
+        /// The main agent uses MCP tools for inventory functionality.
+        /// </summary>
+        private bool RequiresMcpToolResources(string agentId)
+        {
+            // The main agent uses MCP tools for inventory functionality
+            return agentId == _mainAgentId;
+        }
+        
+        /// <summary>
+        /// Lazy initialization of the persistent agents client.
+        /// No agent factories needed since we use pre-created persistent agents.
         /// </summary>
         private void EnsureInitialized()
         {
@@ -94,36 +144,31 @@ namespace dotnetfashionassistant.Services
                     if (!string.IsNullOrEmpty(_projectEndpoint))
                     {
                         _agentsClient = new PersistentAgentsClient(_projectEndpoint, new DefaultAzureCredential());
-                        
-                        // Initialize agent factories
-                        _orchestratorFactory = new OrchestratorAgentFactory(_agentsClient, _configuration, 
-                            _loggerFactory.CreateLogger<OrchestratorAgentFactory>());
-                        _cartManagerFactory = new CartManagerAgentFactory(_agentsClient, _configuration, 
-                            _loggerFactory.CreateLogger<CartManagerAgentFactory>());
-                        _fashionAdvisorFactory = new FashionAdvisorAgentFactory(_agentsClient, _configuration, 
-                            _loggerFactory.CreateLogger<FashionAdvisorAgentFactory>());
-                        _contentModeratorFactory = new ContentModeratorAgentFactory(_agentsClient, _configuration, 
-                            _loggerFactory.CreateLogger<ContentModeratorAgentFactory>());
-                        // MCP INVENTORY FACTORY - DISABLED: Causing hanging issues, needs further investigation
-                        // _mcpInventoryFactory = new MCPInventoryAgentFactory(_agentsClient, _configuration,
-                        //     _loggerFactory.CreateLogger<MCPInventoryAgentFactory>());
-                        
                         _isInitialized = true;
-                        _logger.LogInformation("Multi-Agent service initialized successfully with {FactoryCount} agent factories", 3);
+                        _logger.LogInformation("Persistent Agent service initialized successfully");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error initializing Multi-Agent service client");
+                    _logger.LogError(ex, "Error initializing Persistent Agent service client");
                 }
             }
         }
 
         /// <summary>
-        /// Creates a new thread for conversation.
-        /// This maintains compatibility with the existing interface.
+        /// Creates a new thread for conversation or reuses existing thread for user.
+        /// With persistent agents, threads can be reused across conversations.
         /// </summary>
         public async Task<string> CreateThreadAsync()
+        {
+            return await CreateThreadForUserAsync("default_user");
+        }
+
+        /// <summary>
+        /// Creates or gets existing thread for a specific user.
+        /// This enables per-user conversation persistence.
+        /// </summary>
+        public async Task<string> CreateThreadForUserAsync(string userId)
         {
             if (!_isConfigured)
             {
@@ -136,126 +181,95 @@ namespace dotnetfashionassistant.Services
             {
                 return "agent-initialization-failed";
             }
+
+            // Check if user already has a thread
+            if (_userThreads.TryGetValue(userId, out string? existingThreadId))
+            {
+                _logger.LogInformation("Reusing existing thread {ThreadId} for user {UserId}", existingThreadId, userId);
+                return existingThreadId;
+            }
             
             try
             {
                 var threadResponse = await _agentsClient.Threads.CreateThreadAsync();
-                _logger.LogInformation("Created new conversation thread: {ThreadId}", threadResponse.Value.Id);
-                return threadResponse.Value.Id;
+                var newThreadId = threadResponse.Value.Id;
+                _userThreads.TryAdd(userId, newThreadId);
+                _logger.LogInformation("Created new thread {ThreadId} for user {UserId}", newThreadId, userId);
+                return newThreadId;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating conversation thread");
+                _logger.LogError(ex, "Error creating conversation thread for user {UserId}", userId);
                 return "agent-not-configured";
             }
         }
 
         /// <summary>
-        /// Sends a message using the multi-agent system.
-        /// This is the main entry point that demonstrates the multi-agent pattern.
+        /// Sends a message using the main agent with connected agents.
+        /// The connected agents pattern handles delegation automatically.
         /// 
-        /// DEMO FLOW:
-        /// 1. Create all specialist agents
-        /// 2. Create orchestrator agent with connected agents
-        /// 3. Send user message to orchestrator
-        /// 4. Orchestrator delegates to appropriate specialist
-        /// 5. Return coordinated response
+        /// DEMO FLOW with Connected Agents:
+        /// 1. Send user message to main agent 
+        /// 2. Main agent automatically delegates to connected specialist agents as needed
+        /// 3. Connected agents coordinate and execute specialized tasks
+        /// 4. Main agent compiles and returns coordinated response
         /// </summary>
         public async Task<string> SendMessageAsync(string threadId, string userMessage)
         {
             if (!_isConfigured || threadId == "agent-not-configured")
             {
-                return "The AI agent system is not properly configured. Please add the required environment variable (AI_PROJECT_ENDPOINT) in your application settings.";
+                return "The AI agent system is not properly configured. Please add the required environment variables (AI_PROJECT_ENDPOINT, AZURE_AI_FOUNDRY_MAIN_AGENT_ID) in your application settings.";
             }
             
             EnsureInitialized();
             
-            if (_agentsClient == null)
+            if (_agentsClient == null || string.IsNullOrEmpty(_mainAgentId))
             {
                 return "The AI agent system could not be initialized. Please check the configuration and try again.";
             }
-
-            // Track all agents for cleanup
-            var agentsToCleanup = new List<PersistentAgent>();
             
             try
             {
-                _logger.LogInformation("Starting multi-agent conversation for message: {Message}", userMessage);
+                _logger.LogInformation("Starting persistent agent conversation for message: {Message}", userMessage);
                 
                 // Invalidate cache for this thread since we're adding a new message
                 _threadHistoryCache.TryRemove(threadId, out _);
                 _lastCacheUpdateTime.TryRemove(threadId, out _);
                 
-                // STEP 1: Create all specialist agents
-                // This demonstrates creating each type of agent with their specific purposes
-                _logger.LogInformation("Creating specialist agents...");
+                // Add the user message to the thread
+                _logger.LogInformation("Adding message to thread {ThreadId}...", threadId);
                 
-                var cartManagerAgent = await _cartManagerFactory!.CreateAgentAsync();
-                if (cartManagerAgent == null)
-                {
-                    return "Failed to create cart management specialist. The system may be experiencing issues.";
-                }
-                agentsToCleanup.Add(cartManagerAgent);
-                _logger.LogInformation("✅ Created Cart Manager Agent: {AgentId}", cartManagerAgent.Id);
-
-                var fashionAdvisorAgent = await _fashionAdvisorFactory!.CreateAgentAsync();
-                if (fashionAdvisorAgent == null)
-                {
-                    return "Failed to create fashion advice specialist. The system may be experiencing issues.";
-                }
-                agentsToCleanup.Add(fashionAdvisorAgent);
-                _logger.LogInformation("✅ Created Fashion Advisor Agent: {AgentId}", fashionAdvisorAgent.Id);
-
-                var contentModeratorAgent = await _contentModeratorFactory!.CreateAgentAsync();
-                if (contentModeratorAgent == null)
-                {
-                    return "Failed to create content moderation specialist. The system may be experiencing issues.";
-                }
-                agentsToCleanup.Add(contentModeratorAgent);
-                _logger.LogInformation("✅ Created Content Moderator Agent: {AgentId}", contentModeratorAgent.Id);
-
-                // MCP INVENTORY AGENT - DISABLED: Still causing hanging issues even with RequiresAction handling
-                // TODO: Need to investigate proper MCP tool configuration for Azure AI Foundry
-                // var mcpInventoryAgent = await _mcpInventoryFactory!.CreateAgentAsync();
-                // if (mcpInventoryAgent == null)
-                // {
-                //     return "Failed to create MCP inventory specialist. The system may be experiencing issues.";
-                // }
-                // agentsToCleanup.Add(mcpInventoryAgent);
-                // _logger.LogInformation("✅ Created MCP Inventory Agent: {AgentId}", mcpInventoryAgent.Id);
-
-                // STEP 2: Create the orchestrator agent with connected agents (3-agent version - stable)
-                // Cart agent handles both cart operations AND inventory queries via OpenAPI
-                _logger.LogInformation("Creating orchestrator agent with connected specialists...");
-                
-                var orchestratorAgent = await _orchestratorFactory!.CreateOrchestratorWithConnectedAgentsAsync(
-                    cartManagerAgent, fashionAdvisorAgent, contentModeratorAgent);
-                    
-                if (orchestratorAgent == null)
-                {
-                    return "Failed to create the main coordinator agent. The system may be experiencing issues.";
-                }
-                agentsToCleanup.Add(orchestratorAgent);
-                _logger.LogInformation("✅ Created Orchestrator Agent with {ConnectedAgentCount} connected agents: {AgentId}", 
-                    3, orchestratorAgent.Id);
-
-                // STEP 3: Process the conversation through the orchestrator
-                // Add the user message to the existing thread and create a run
-                _logger.LogInformation("Adding message to existing thread {ThreadId}...", threadId);
-                
-                // Add the user message to the existing thread
                 await _agentsClient.Messages.CreateMessageAsync(
                     threadId: threadId,
                     role: MessageRole.User,
                     content: userMessage);
                 
-                _logger.LogInformation("User message added to thread. Creating run with orchestrator...");
+                _logger.LogInformation("User message added to thread. Creating run with main agent {AgentId}...", _mainAgentId);
                 
-                // Create a run with the orchestrator agent on the existing thread
-                var run = await _agentsClient.Runs.CreateRunAsync(threadId, orchestratorAgent.Id);
-                _logger.LogInformation("Started orchestrator run: {RunId} on thread: {ThreadId}", run.Value.Id, threadId);
+                // Create MCP tool resources if needed for the main agent
+                ToolResources? toolResources = null;
+                if (RequiresMcpToolResources(_mainAgentId))
+                {
+                    toolResources = CreateMcpToolResources();
+                    if (toolResources != null)
+                    {
+                        _logger.LogInformation("Using MCP tool resources for run with main agent");
+                    }
+                }
                 
-                // Wait for the orchestrator to complete (including any specialist delegations)
+                // Create a run with the main agent (and MCP tool resources if available)
+                // Based on Azure SDK documentation, we need to get the thread and agent objects first
+                var threadResponse = await _agentsClient.Threads.GetThreadAsync(threadId);
+                var agentResponse = await _agentsClient.Administration.GetAgentAsync(_mainAgentId);
+                
+                var run = toolResources != null
+                    ? await _agentsClient.Runs.CreateRunAsync(threadResponse.Value, agentResponse.Value, toolResources)
+                    : await _agentsClient.Runs.CreateRunAsync(threadId, _mainAgentId);
+                    
+                _logger.LogInformation("Started main agent run: {RunId} on thread: {ThreadId} with MCP tools: {HasMcpTools}", 
+                    run.Value.Id, threadId, toolResources != null);
+                
+                // Wait for the main agent to complete (including delegation to connected agents)
                 var completedRun = await WaitForRunCompletionAsync(threadId, run.Value.Id);
                 
                 if (completedRun.Status != RunStatus.Completed)
@@ -265,11 +279,11 @@ namespace dotnetfashionassistant.Services
                     {
                         errorMessage += $" Error: {completedRun.LastError.Message}";
                     }
-                    _logger.LogWarning("Multi-agent conversation failed: {Error}", errorMessage);
+                    _logger.LogWarning("Persistent agent conversation failed: {Error}", errorMessage);
                     return errorMessage;
                 }
 
-                // STEP 4: Get the coordinated response from the orchestrator
+                // Get the response from the main agent
                 var messagesPageable = _agentsClient.Messages.GetMessagesAsync(threadId);
                 var messagesList = new List<PersistentThreadMessage>();
                 await foreach (var message in messagesPageable)
@@ -281,108 +295,127 @@ namespace dotnetfashionassistant.Services
                 
                 if (assistantMessage?.ContentItems?.FirstOrDefault() is MessageTextContent textContent)
                 {
-                    _logger.LogInformation("Multi-agent conversation completed successfully");
-                    return textContent.Text;
+                    _logger.LogInformation("Persistent agent conversation completed successfully");
+                    
+                    // Clean up any debugging artifacts that might appear in responses
+                    var cleanedResponse = CleanAgentResponse(textContent.Text);
+                    return cleanedResponse;
                 }
                 
-                return "I apologize, but I couldn't generate a response through the specialist agents.";
+                return "I apologize, but I couldn't generate a response through the fashion store agent system.";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in multi-agent conversation for thread {ThreadId}", threadId);
-                return $"Error in multi-agent conversation: {ex.Message}. Please try again.";
-            }
-            finally
-            {
-                // CLEANUP: Delete all created agents
-                // This follows the per-request pattern as specified
-                _logger.LogInformation("Cleaning up {AgentCount} agents...", agentsToCleanup.Count);
-                
-                foreach (var agent in agentsToCleanup)
-                {
-                    try
-                    {
-                        await _agentsClient!.Administration.DeleteAgentAsync(agent.Id);
-                        _logger.LogDebug("Deleted agent: {AgentId}", agent.Id);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Error deleting agent {AgentId}", agent.Id);
-                    }
-                }
-                
-                _logger.LogInformation("Agent cleanup completed");
+                _logger.LogError(ex, "Error in persistent agent conversation for thread {ThreadId}", threadId);
+                return $"Error in agent conversation: {ex.Message}. Please try again.";
             }
         }
 
         /// <summary>
-        /// Waits for a run to complete, with appropriate logging, timeout, and RequiresAction handling for MCP tools.
+        /// Cleans up debugging artifacts and metadata that might appear in agent responses.
+        /// </summary>
+        private static string CleanAgentResponse(string response)
+        {
+            if (string.IsNullOrEmpty(response))
+                return response;
+
+            // Remove debugging artifacts with square brackets containing colons or asterisks
+            // Examples: 【message_idx:search_idx*source】
+            var cleanedResponse = System.Text.RegularExpressions.Regex.Replace(
+                response, 
+                @"【[^】]*[:*][^】]*】", 
+                "", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            // Remove any extra whitespace that might be left behind
+            cleanedResponse = System.Text.RegularExpressions.Regex.Replace(
+                cleanedResponse, 
+                @"\s+", 
+                " ");
+
+            return cleanedResponse.Trim();
+        }
+
+        /// <summary>
+        /// Waits for a run to complete, with appropriate logging and timeout.
+        /// Handles tool approval for connected agents that use MCP or other tools.
         /// </summary>
         private async Task<ThreadRun> WaitForRunCompletionAsync(string threadId, string runId)
         {
             ThreadRun run;
             var startTime = DateTime.UtcNow;
-            var timeout = TimeSpan.FromSeconds(120); // 2 minute timeout for MCP compatibility
+            var timeout = TimeSpan.FromSeconds(120); // 2 minute timeout
             
             do
             {
                 await Task.Delay(1000); // Wait 1 second between checks
                 run = (await _agentsClient!.Runs.GetRunAsync(threadId, runId)).Value;
                 
-                // Log progress for demo purposes
+                // Log progress
                 var elapsed = DateTime.UtcNow - startTime;
                 _logger.LogDebug("Run {RunId} status: {Status} (elapsed: {Elapsed}s)", 
                     runId, run.Status, elapsed.TotalSeconds);
                 
-                // Handle RequiresAction state for MCP tools
+                // Handle RequiresAction state for tool calls (MCP/OpenAPI)
                 if (run.Status == RunStatus.RequiresAction)
                 {
-                    _logger.LogInformation("Run {RunId} requires action - handling tool calls for MCP", runId);
+                    _logger.LogInformation("Run {RunId} requires action - handling tool calls", runId);
                     
                     try
                     {
-                        // Get the required action details
                         var requiredAction = run.RequiredAction;
-                        if (requiredAction != null)
+                        if (requiredAction is SubmitToolApprovalAction toolApprovalAction)
                         {
-                            _logger.LogInformation("RequiredAction found for run {RunId}, attempting to handle tool outputs", runId);
+                            _logger.LogInformation("Processing tool approval action for run {RunId}", runId);
                             
-                            // Try to handle the tool calls - the exact API might vary
-                            // Let's check what properties are available on RequiredAction
-                            _logger.LogInformation("RequiredAction type: {RequiredActionType}", requiredAction.GetType().Name);
-                            
-                            // For now, let's try a simple approach - just submit an empty tool output to continue
-                            var toolOutputs = new List<ToolOutput>();
-                            
-                            // Add a placeholder tool output
-                            toolOutputs.Add(new ToolOutput("tool_call_placeholder", "MCP tool execution approved"));
-                            
-                            try
+                            var toolApprovals = new List<ToolApproval>();
+                            foreach (var toolCall in toolApprovalAction.SubmitToolApproval.ToolCalls)
                             {
-                                // Submit the tool outputs to continue the run
-                                _logger.LogInformation("Attempting to submit tool outputs for run {RunId}", runId);
-                                await _agentsClient.Runs.SubmitToolOutputsToRunAsync(threadId, runId, toolOutputs);
-                                _logger.LogInformation("Tool outputs submitted successfully for run {RunId}", runId);
+                                if (toolCall is RequiredMcpToolCall mcpToolCall)
+                                {
+                                    _logger.LogInformation("Approving MCP tool call: {ToolName}, Arguments: {Arguments}", 
+                                        mcpToolCall.Name, mcpToolCall.Arguments);
+                                    
+                                    // Auto-approve MCP tool calls for demo purposes
+                                    // In production, you might want to add validation logic here
+                                    toolApprovals.Add(new ToolApproval(mcpToolCall.Id, approve: true));
+                                }
+                                else if (toolCall is RequiredFunctionToolCall functionToolCall)
+                                {
+                                    _logger.LogInformation("Approving function tool call: {ToolName}, Arguments: {Arguments}", 
+                                        functionToolCall.Name, functionToolCall.Arguments);
+                                    
+                                    // Auto-approve function tool calls for demo purposes
+                                    toolApprovals.Add(new ToolApproval(functionToolCall.Id, approve: true));
+                                }
                             }
-                            catch (Exception submitEx)
+
+                            if (toolApprovals.Count > 0)
                             {
-                                _logger.LogWarning(submitEx, "Failed to submit tool outputs for run {RunId}, will continue waiting", runId);
+                                _logger.LogInformation("Submitting {Count} tool approvals for run {RunId}", toolApprovals.Count, runId);
+                                await _agentsClient.Runs.SubmitToolOutputsToRunAsync(threadId, runId, toolApprovals: toolApprovals);
                             }
+                        }
+                        else if (requiredAction != null)
+                        {
+                            _logger.LogInformation("Processing other required action for run {RunId}: {ActionType}", 
+                                runId, requiredAction.GetType().Name);
+                            
+                            // Handle other types of required actions
+                            await Task.Delay(2000); // Give tools time to execute
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to handle RequiresAction for run {RunId}: {Error}", runId, ex.Message);
+                        _logger.LogWarning(ex, "Issue handling RequiresAction for run {RunId}, continuing...", runId);
                     }
                 }
                 
-                // Check for timeout to prevent MCP hanging
+                // Check for timeout
                 if (elapsed > timeout)
                 {
-                    _logger.LogError("Run {RunId} timed out after {Timeout}s - likely MCP agent issue", 
-                        runId, timeout.TotalSeconds);
+                    _logger.LogError("Run {RunId} timed out after {Timeout}s", runId, timeout.TotalSeconds);
                     
-                    // Try to cancel the run
                     try
                     {
                         await _agentsClient.Runs.CancelRunAsync(threadId, runId);
@@ -548,23 +581,42 @@ namespace dotnetfashionassistant.Services
         }
 
         /// <summary>
-        /// Gets a summary of the current multi-agent configuration.
-        /// Perfect for demo purposes to show what agents are available.
+        /// Gets a summary of the connected agents configuration.
+        /// Perfect for demo purposes to show the connected agents setup.
         /// </summary>
         public Dictionary<string, object> GetMultiAgentSystemInfo()
         {
-            var agentConfigs = AgentDefinitions.GetAllAgentConfigurations();
-            var connectedAgentDescriptions = AgentDefinitions.GetConnectedAgentDescriptions();
-            
             return new Dictionary<string, object>
             {
                 ["IsConfigured"] = _isConfigured,
                 ["IsInitialized"] = _isInitialized,
                 ["ProjectEndpoint"] = _projectEndpoint ?? "Not configured",
-                ["AvailableAgents"] = agentConfigs.Keys.ToList(),
-                ["AgentDetails"] = agentConfigs,
-                ["ConnectedAgentDescriptions"] = connectedAgentDescriptions,
-                ["Architecture"] = "Orchestrator → Specialist Agents → Coordinated Response"
+                ["MainAgentId"] = _mainAgentId ?? "Not configured",
+                ["ExternalMcpServerUrl"] = _externalMcpServerUrl ?? "Not configured",
+                ["Architecture"] = "Connected Agents - Main Orchestrator with 4 Connected Specialist Agents",
+                ["AgentDetails"] = new List<object>
+                {
+                    new { Name = "Main Orchestrator", Purpose = "Coordinates all customer interactions and delegates to connected agents", Tools = "Connected agent tools" },
+                    new { Name = "Cart Manager (Connected)", Purpose = "Shopping cart operations", Tools = "OpenAPI (swagger.json)" },
+                    new { Name = "Inventory Manager (Connected)", Purpose = "Product availability and details", Tools = "MCP (external inventory system)" },
+                    new { Name = "Fashion Advisor (Connected)", Purpose = "Style recommendations", Tools = "None (LLM knowledge)" },
+                    new { Name = "Content Moderator (Connected)", Purpose = "Content safety", Tools = "None (LLM knowledge)" }
+                },
+                ["ConnectedAgentsFlow"] = new
+                {
+                    UserMessage = "Sent to Main Orchestrator",
+                    Delegation = "Main agent intelligently delegates to appropriate connected agents",
+                    Coordination = "Connected agents work together automatically",
+                    Response = "Main agent compiles and returns coordinated response"
+                },
+                ["ThreadManagement"] = "Per-user persistent threads",
+                ["AgentType"] = "Connected Agents (main + 4 connected specialists created via Python script)",
+                ["RequiredEnvironmentVariables"] = new List<string>
+                {
+                    "AI_PROJECT_ENDPOINT",
+                    "MAIN_ORCHESTRATOR_AGENT_ID", 
+                    "EXTERNAL_MCP_SERVER_URL"
+                }
             };
         }
 
@@ -583,15 +635,29 @@ namespace dotnetfashionassistant.Services
         }
 
         /// <summary>
-        /// Compatibility method for cleanup conversation functionality.
-        /// Since we now use per-request agent pattern, this is a no-op.
+        /// Cleanup method for thread management.
+        /// With persistent agents, we can optionally clear user thread mappings.
         /// </summary>
         public async Task CleanupConversationAsync(string threadId)
         {
-            // With the per-request pattern, agents are automatically cleaned up after each message
-            // This method exists for backward compatibility but doesn't need to do anything
+            // With persistent agents, we could optionally:
+            // 1. Remove the thread from user mappings
+            // 2. Delete the thread if desired
+            // 3. Clear cached history
+            
+            _threadHistoryCache.TryRemove(threadId, out _);
+            _lastCacheUpdateTime.TryRemove(threadId, out _);
+            
+            // Remove from user thread mappings
+            var userToRemove = _userThreads.FirstOrDefault(kvp => kvp.Value == threadId).Key;
+            if (!string.IsNullOrEmpty(userToRemove))
+            {
+                _userThreads.TryRemove(userToRemove, out _);
+                _logger.LogDebug("Removed thread {ThreadId} mapping for user {UserId}", threadId, userToRemove);
+            }
+            
             await Task.CompletedTask;
-            _logger.LogDebug("CleanupConversationAsync called for thread {ThreadId} - using per-request pattern, no cleanup needed", threadId);
+            _logger.LogDebug("Cleaned up conversation data for thread {ThreadId}", threadId);
         }
     }
 }

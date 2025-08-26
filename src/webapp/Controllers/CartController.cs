@@ -40,7 +40,8 @@ namespace dotnetfashionassistant.Controllers
             // Validate request
             if (request.Quantity <= 0)
             {
-                return BadRequest("Quantity must be greater than zero");
+                // Default to quantity 1 if not provided or invalid
+                request.Quantity = 1;
             }
 
             // Check if the product exists and is in stock
