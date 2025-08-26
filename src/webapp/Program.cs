@@ -35,8 +35,6 @@ builder.Services.AddScoped<dotnetfashionassistant.Models.InventoryService>();
 
 builder.Services.AddBlazorBootstrap();
 
-// Register the Multi-Agent Orchestration Service 
-// HANDS-ON DEMO: This is the main AI service using 4 specialized agents!
 builder.Services.AddScoped<dotnetfashionassistant.Services.MultiAgentOrchestrationService>();
 
 // Register AgentModeService as a singleton to persist mode state across the application

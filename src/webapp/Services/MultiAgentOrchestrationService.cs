@@ -582,7 +582,6 @@ namespace dotnetfashionassistant.Services
 
         /// <summary>
         /// Gets a summary of the connected agents configuration.
-        /// Perfect for demo purposes to show the connected agents setup.
         /// </summary>
         public Dictionary<string, object> GetMultiAgentSystemInfo()
         {

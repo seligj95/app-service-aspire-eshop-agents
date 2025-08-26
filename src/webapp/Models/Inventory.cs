@@ -54,15 +54,9 @@ namespace dotnetfashionassistant.Models
         public InventoryService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _externalApiUrl = configuration["EXTERNAL_INVENTORY_API_URL"] 
-                             ?? Environment.GetEnvironmentVariable("EXTERNAL_INVENTORY_API_URL")
+            _externalApiUrl = configuration["EXTERNAL_INVENTORY_URL"] 
+                             ?? Environment.GetEnvironmentVariable("EXTERNAL_INVENTORY_URL")
                              ?? "https://your-inventory-api.azurewebsites.net";
-            
-            // Debug logging for App Service
-            Console.WriteLine($"📦 INVENTORY SERVICE DEBUG - Configuration Sources:");
-            Console.WriteLine($"📦 Config[EXTERNAL_INVENTORY_API_URL]: {configuration["EXTERNAL_INVENTORY_API_URL"]}");
-            Console.WriteLine($"📦 Environment[EXTERNAL_INVENTORY_API_URL]: {Environment.GetEnvironmentVariable("EXTERNAL_INVENTORY_API_URL")}");
-            Console.WriteLine($"📦 Final _externalApiUrl: {_externalApiUrl}");
         }
 
         public async Task<List<InventoryItem>> GetInventoryAsync()
@@ -70,30 +64,20 @@ namespace dotnetfashionassistant.Models
             try
             {
                 var requestUrl = $"{_externalApiUrl}/api/inventory";
-                Console.WriteLine($"📦 INVENTORY API REQUEST - Calling: {requestUrl}");
                 
                 var response = await _httpClient.GetAsync(requestUrl);
                 response.EnsureSuccessStatusCode();
                 
                 var json = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"📦 INVENTORY API RESPONSE - Status: {response.StatusCode}, Content length: {json.Length}");
                 
                 var externalItems = System.Text.Json.JsonSerializer.Deserialize<List<ExternalInventoryItem>>(json);
                 
-                // Map external API response to internal model
                 var result = externalItems?.Select(MapToInventoryItem).ToList() ?? new List<InventoryItem>();
-                Console.WriteLine($"📦 INVENTORY MAPPING - Mapped {result.Count} items");
                 
                 return result;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // Log error and provide helpful message for demo app
-                Console.WriteLine($"📦 INVENTORY ERROR - Error fetching external inventory: {ex.Message}");
-                Console.WriteLine($"📦 INVENTORY ERROR - Please configure the EXTERNAL_INVENTORY_API_URL app setting with a valid inventory API URL.");
-                Console.WriteLine($"📦 INVENTORY ERROR - Current URL: {_externalApiUrl}");
-                
-                // Return empty list - no fallback for demo app
                 return new List<InventoryItem>();
             }
         }

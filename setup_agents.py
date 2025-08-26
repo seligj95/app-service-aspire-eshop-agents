@@ -210,18 +210,20 @@ def create_agents():
     print(f"Using model: {model_deployment_name}")
     print(f"Web app URL: {webapp_url}")
     
-    # Get external MCP server URL
-    external_mcp_server_url = os.environ.get("EXTERNAL_MCP_SERVER_URL")
+    external_inventory_url = os.environ.get("EXTERNAL_INVENTORY_URL")
     
-    if not external_mcp_server_url:
-        print("ERROR: EXTERNAL_MCP_SERVER_URL environment variable not set!")
-        print("Please set it to point to your external MCP server, for example:")
-        print("  export EXTERNAL_MCP_SERVER_URL='https://your-mcp-server.com/mcp'")
+    if not external_inventory_url:
+        print("ERROR: EXTERNAL_INVENTORY_URL environment variable not set!")
+        print("Please set it to point to your external inventory service, for example:")
+        print("  export EXTERNAL_INVENTORY_URL='https://your-inventory-server.com'")
         return
     
+    base_url = external_inventory_url.rstrip('/')
+    external_mcp_server_url = f"{base_url}/mcp" if not base_url.endswith('/mcp') else base_url
+    
+    print(f"External inventory URL: {external_inventory_url}")
     print(f"External MCP server URL: {external_mcp_server_url}")
     
-    # Initialize the AI Project client
     project_client = AIProjectClient(
         endpoint=project_endpoint,
         credential=DefaultAzureCredential(),
@@ -230,6 +232,36 @@ def create_agents():
     agents_client = project_client.agents
     agent_ids = {}
     created_agents = {}
+    
+    print(f"\n{'='*60}")
+    print("STEP 0: Cleaning up existing agents...")
+    print(f"{'='*60}")
+    
+    try:
+        existing_agents_pageable = agents_client.list_agents()
+        existing_agents = []
+        
+        for agent in existing_agents_pageable:
+            existing_agents.append(agent)
+        
+        if existing_agents:
+            print(f"Found {len(existing_agents)} existing agents to delete...")
+            
+            for agent in existing_agents:
+                try:
+                    print(f"Deleting agent: {agent.name} (ID: {agent.id})")
+                    agents_client.delete_agent(agent.id)
+                    print(f"✓ Deleted agent: {agent.name}")
+                except Exception as e:
+                    print(f"✗ Failed to delete agent {agent.name}: {str(e)}")
+            
+            print(f"✓ Completed cleanup of existing agents")
+        else:
+            print("No existing agents found to delete")
+            
+    except Exception as e:
+        print(f"Warning: Could not retrieve existing agents for cleanup: {str(e)}")
+        print("Continuing with agent creation...")
     
     # Get agent configurations with external MCP server
     agents_config = get_agents_config(webapp_url, external_mcp_server_url)

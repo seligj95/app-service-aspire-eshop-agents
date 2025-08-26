@@ -413,9 +413,3 @@ Beyond basic interactions, the AI agent can handle more complex scenarios:
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-<!-- ## TODO
-- add auth to mcp server
-- make long system prompt for main agent
-- make it chat wont work locally because not authed to foundry
-- upgrade to pv4 -->

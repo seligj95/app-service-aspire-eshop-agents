@@ -1,11 +1,8 @@
 using DotNetEnv;
 
-// Load environment variables from .env file in development
-// Find the solution root by looking for the .env file
 var currentDir = Directory.GetCurrentDirectory();
 var solutionRoot = currentDir;
 
-// Walk up the directory tree to find the .env file
 while (solutionRoot != null && !File.Exists(Path.Combine(solutionRoot, ".env")))
 {
     var parentDir = Directory.GetParent(solutionRoot);
@@ -25,16 +22,13 @@ else
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Add the webapp project with environment variables
 var webapp = builder.AddProject<Projects.dotnetfashionassistant>("webapp")
     .WithEnvironment("AI_PROJECT_ENDPOINT", Environment.GetEnvironmentVariable("AI_PROJECT_ENDPOINT") ?? "")
     .WithEnvironment("AI_MODEL_DEPLOYMENT_NAME", Environment.GetEnvironmentVariable("AI_MODEL_DEPLOYMENT_NAME") ?? "gpt-4o")
-    .WithEnvironment("EXTERNAL_INVENTORY_API_URL", Environment.GetEnvironmentVariable("EXTERNAL_INVENTORY_API_URL") ?? "")
+    .WithEnvironment("EXTERNAL_INVENTORY_URL", Environment.GetEnvironmentVariable("EXTERNAL_INVENTORY_URL") ?? "")
     .WithExternalHttpEndpoints()
     .PublishAsAzureAppServiceWebsite((infrastructure, app) =>
     {
-        // Configure the App Service WebSite resource here if needed
-        // The default configuration should work for most scenarios
     });
 
 builder.Build().Run();
