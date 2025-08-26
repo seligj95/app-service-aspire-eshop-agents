@@ -265,6 +265,8 @@ The script will:
 
 **📝 Save the Main Orchestrator Agent ID** - you'll need it for the next step.
 
+You can go into Azure Foundry in the Azure portal to view the agents you just created and confirm setup is as expected.
+
 ## Step 6: Configure Main Agent in App Service
 
 Add the agent ID to your App Service configuration:
