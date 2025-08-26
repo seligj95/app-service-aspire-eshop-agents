@@ -8,7 +8,7 @@ from azure.ai.agents.models import OpenApiTool, OpenApiAnonymousAuthDetails, Mcp
 project_endpoint = os.environ["PROJECT_ENDPOINT"]
 model_deployment_name = os.environ["MODEL_DEPLOYMENT_NAME"]
 webapp_url = os.environ["WEBAPP_URL"]
-external_inventory_api_url = os.environ["EXTERNAL_INVENTORY_API_URL"]
+external_inventory_api_url = os.environ["EXTERNAL_INVENTORY_URL"]
 
 def load_and_patch_swagger_spec(webapp_url):
     """Load swagger.json and patch the server URL with the webapp URL"""

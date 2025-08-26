@@ -218,7 +218,7 @@ namespace dotnetfashionassistant.Services
         {
             if (!_isConfigured || threadId == "agent-not-configured")
             {
-                return "The AI agent system is not properly configured. Please add the required environment variables (AI_PROJECT_ENDPOINT, AZURE_AI_FOUNDRY_MAIN_AGENT_ID) in your application settings.";
+                return "The AI agent system is not properly configured. Please add the required environment variable (MAIN_ORCHESTRATOR_AGENT_ID) in your application settings.";
             }
             
             EnsureInitialized();
@@ -448,7 +448,7 @@ namespace dotnetfashionassistant.Services
             {
                 return new List<ChatMessage> {
                     new ChatMessage {
-                        Content = "The AI agent system is not properly configured. Please add the required environment variable (AI_PROJECT_ENDPOINT) in your application settings.",
+                        Content = "The AI agent system is not properly configured. Please add the required environment variable (MAIN_ORCHESTRATOR_AGENT_ID) in your application settings.",
                         IsUser = false,
                         Timestamp = DateTime.Now
                     }

@@ -25,6 +25,8 @@ cd app-service-python-mcp-inventory
 azd up
 ```
 
+Follow the prompts to complete the deployment. This will take about 5 minutes to complete.
+
 **📝 Important:** Note the App Service URL from the deployment (e.g., `https://app-web-xyz123.azurewebsites.net`). You'll need this URL in the following steps.
 
 This inventory service provides:
@@ -54,6 +56,8 @@ git clone https://github.com/seligj95/app-service-aspire-eshop-agents.git
 cd app-service-aspire-eshop-agents
 azd up
 ```
+
+Follow the prompts to complete the deployment. This will take about 5 minutes to complete.
 
 This will provision:
 - Azure App Service for the web application
@@ -99,15 +103,17 @@ This will:
 
 ## Step 4: Configure Inventory URL in App Service
 
-After deployment, configure the inventory service URL in your fashion store App Service:
+After deployment, configure the inventory service URL in your fashion store App Service (note that you are adding the app settings to the fashion store, not the inventory app):
 
-1. Go to **Azure Portal** → Your App Service
-2. Navigate to **Configuration** → **Application settings**
-3. Add or update the setting:
+1. Go to **Azure Portal** → Your fashion store App Service
+2. Navigate to **Settings** → **Environment variables**
+3. Add the app setting:
    - **Name:** `EXTERNAL_INVENTORY_URL`
    - **Value:** `https://your-inventory-app.azurewebsites.net` (from Step 1)
-4. Click **Save** and **Continue** when prompted
-5. Restart the App Service
+4. Click **Save** and **Confirm** when prompted
+5. This will restart the App Service and the changes will take effect in a couple minutes. 
+
+You can now access the app to see the working shopping experience. The chat experience will not work at this point since you haven't created and added the agents yet.
 
 ## Step 5: Create AI Agents with Python Script
 
@@ -210,10 +216,35 @@ The MCP tool is attached directly to the **main orchestrator agent** because:
 
 ### Run the Setup Script
 
+**Set Required Environment Variables:**
+
+The script requires several environment variables. You can get these values from your Azure deployments:
+
 ```bash
 # Ensure you're logged into Azure CLI
 az login
 
+# Set your inventory URL (from Step 1 - inventory service deployment)
+export EXTERNAL_INVENTORY_URL='https://your-inventory-app.azurewebsites.net'
+
+# Set your web app URL (from Step 2 - main app deployment) - this is the URL for the fashion app, not the inventory
+export WEBAPP_URL='https://your-fashion-app.azurewebsites.net'
+
+# Set your Azure AI Foundry project details (from Step 2 deployment)
+# You can find these in Azure Portal → Resource group → AI Foundry project (make sure you select the project resource and NOT the parent Foundry resource → Resiyrce Management → Endpoints
+export PROJECT_ENDPOINT='https://your-project-name.westus2.api.azureml.ms'
+export MODEL_DEPLOYMENT_NAME='gpt-4.1'
+```
+
+**📝 How to find these values:**
+- **EXTERNAL_INVENTORY_URL**: From Step 1 `azd up` output or Azure Portal → Inventory App Service → Overview → Default domain
+- **WEBAPP_URL**: From Step 2 `azd up` output or Azure Portal → Fashion App Service → Overview → Default domain  
+- **PROJECT_ENDPOINT**: Azure Portal → AI Foundry project → Settings → General → "Project details" section
+- **MODEL_DEPLOYMENT_NAME**: Azure Portal → AI Foundry project → Deployments → Model deployments (`gpt-4.1 if you didn't change anything in the Bicep template used by azd`)
+
+**Create Python Environment and Run Script:**
+
+```bash
 # Create and activate a Python virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -221,16 +252,13 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Set your inventory URL (from Step 1)
-export EXTERNAL_INVENTORY_URL='https://your-inventory-app.azurewebsites.net'
-
 # Run the agent setup script
 python setup_agents.py
 ```
 
 The script will:
 1. Delete any existing agents (for clean setup)
-2. Create all 5 agents with proper configurations
+2. Create all 4 agents
 3. Set up connected agent relationships
 4. Configure MCP and OpenAPI tools
 5. Output the Main Orchestrator Agent ID
@@ -241,17 +269,17 @@ The script will:
 
 Add the agent ID to your App Service configuration:
 
-1. Go to **Azure Portal** → Your App Service
-2. Navigate to **Configuration** → **Application settings**
-3. Add the setting:
+1. Go to **Azure Portal** → Your fashion store App Service
+2. Navigate to **Settings** → **Environment variables**
+3. Add the app setting:
    - **Name:** `MAIN_ORCHESTRATOR_AGENT_ID`
    - **Value:** `agent_abcd1234` (the ID from the Python script output)
 4. Click **Save** and **Continue** when prompted
-5. Restart the App Service
+5. This will restart the App Service and the changes will take effect in a couple minutes. 
 
 ## 🎉 Ready to Use!
 
-Your multi-agent fashion assistant is now fully configured! Visit your App Service URL and try these interactions:
+Wait a couple minutes and then your multi-agent fashion assistant is now fully configured! Visit your App Service URL and try these interactions:
 
 ### Sample Conversations
 
