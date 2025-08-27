@@ -569,11 +569,22 @@ namespace dotnetfashionassistant.Services
             if (string.IsNullOrEmpty(content))
                 return string.Empty;
                 
+            // Filter out error messages first
+            if (content.Contains("[message_idx:") || content.Contains("*source]"))
+            {
+                content = System.Text.RegularExpressions.Regex.Replace(
+                    content, 
+                    @"\s*\[message_idx:[^\]]*\]", 
+                    "");
+            }
+                
+            // Handle markdown-style bold text (convert **text** to <strong>text</strong>)
             content = System.Text.RegularExpressions.Regex.Replace(
                 content, 
                 @"\*\*([^*]+)\*\*", 
                 "<strong>$1</strong>");
                 
+            // Handle line breaks and bullet points
             return content
                 .Replace("\n\n", "<br><br>")
                 .Replace("\n", "<br>")

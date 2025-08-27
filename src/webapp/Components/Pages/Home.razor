@@ -38,7 +38,7 @@
                 {
                     @foreach (var msg in chatHistory)
                     {
-                        <div class="chat-message @(msg.IsUser ? "user-message" : "agent-message")">
+                        <div class="chat-message @(msg.IsUser ? "user-message" : "agent-message")" @key="@($"{msg.Timestamp:yyyyMMddHHmmssfff}-{msg.IsUser}")">
                             <div class="message-content">                                @if (msg.IsUser)
                                 {
                                     <p>@msg.Content</p>
@@ -144,6 +144,7 @@
         padding: 10px 15px;
         border-radius: 18px;
         word-wrap: break-word;
+        line-height: 1.4;
     }
     
     .user-message .message-content {
@@ -159,7 +160,20 @@
     }
     
     .message-content p {
-        margin: 0;
+        margin: 0 0 8px 0;
+        line-height: 1.5;
+    }
+    
+    .message-content p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .message-content br {
+        line-height: 1.5;
+    }
+    
+    .message-content strong {
+        font-weight: 600;
     }
     
     .chat-input-container {
@@ -246,6 +260,18 @@
     
     .agents-used i {
         color: #0d6efd;
+    }
+    
+    /* Formatting styles for reliable text rendering */
+    .formatted-line {
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+    
+    .formatted-header {
+        font-weight: 600;
+        margin-bottom: 12px;
+        margin-top: 8px;
     }
 </style>
 
@@ -424,19 +450,27 @@
                 currentThreadId = await AgentService.CreateThreadAsync();
                 AgentModeService.CurrentThreadId = currentThreadId;
             }
-              // Send message to Azure AI Agent and get enhanced response with agent tracking
+            // Send message to Azure AI Agent and get enhanced response with agent tracking
             var agentResponse = await AgentService.SendMessageWithAgentTrackingAsync(currentThreadId, userMessage);
             
             // Format the response for better HTML display
             string formattedResponse = FormatAgentResponse(agentResponse.Content);
             
-            // Add AI response to chat history
-            chatHistory.Add(new ChatMessage { 
+            // Add AI response to chat history with multiple state updates to ensure rendering
+            var newMessage = new ChatMessage { 
                 Content = agentResponse.Content,
                 FormattedContent = formattedResponse,
                 IsUser = false,
                 Timestamp = DateTime.Now
-            });
+            };
+            
+            // Add message and force multiple updates
+            chatHistory.Add(newMessage);
+            StateHasChanged();
+            
+            // Force another update after a brief delay
+            await Task.Delay(50);
+            StateHasChanged();
             
             // Check if the response mentions adding items to cart
             if (agentResponse.Content.Contains("added to your cart") || 
@@ -461,10 +495,15 @@
         finally
         {
             isLoading = false;
-            StateHasChanged(); // Update UI with AI response
             
-            // Scroll to bottom of chat
-            await ScrollToBottom();
+            // Use InvokeAsync to ensure proper UI thread handling
+            await InvokeAsync(async () => {
+                StateHasChanged(); // Update UI with AI response
+                
+                // Small delay to ensure DOM updates, then scroll
+                await Task.Delay(100);
+                await ScrollToBottom();
+            });
         }
     }
     
@@ -479,54 +518,26 @@
         if (string.IsNullOrEmpty(response))
             return string.Empty;
             
-        // Format the response for better HTML display
-        
+        // Filter out error messages first
+        if (response.Contains("[message_idx:") || response.Contains("*source]"))
+        {
+            response = System.Text.RegularExpressions.Regex.Replace(
+                response, 
+                @"\s*\[message_idx:[^\]]*\]", 
+                "");
+        }
+            
         // Handle markdown-style bold text (convert **text** to <strong>text</strong>)
         response = System.Text.RegularExpressions.Regex.Replace(
             response, 
             @"\*\*([^*]+)\*\*", 
             "<strong>$1</strong>");
             
-        // Handle markdown-style headers (### Header)
-        response = System.Text.RegularExpressions.Regex.Replace(
-            response, 
-            @"###\s+([^\r\n]+)", 
-            "<h4>$1</h4>");
-            
-        // Handle numbered lists - only format when it's clearly a list (multiple items or at line start)
-        // First check if this looks like an actual numbered list
-        var hasMultipleNumbers = System.Text.RegularExpressions.Regex.Matches(response, @"(?:^|\n)\d+\.\s").Count > 1;
-        if (hasMultipleNumbers)
-        {
-            response = System.Text.RegularExpressions.Regex.Replace(
-                response, 
-                @"(?:^|\n)(\d+\.)\s+([^\r\n]+)", 
-                "<br><strong>$1</strong> $2",
-                System.Text.RegularExpressions.RegexOptions.Multiline);
-        }
-            
-        // Handle dash/hyphen lists - add line break before dash
-        response = System.Text.RegularExpressions.Regex.Replace(
-            response, 
-            @"^(\s*-\s+)([^\r\n]+)", 
-            "<br>$1$2",
-            System.Text.RegularExpressions.RegexOptions.Multiline);
-            
-        // Normalize line endings and handle various newline combinations
-        response = response
-            .Replace("\r\n", "\n")  // Normalize Windows line endings
-            .Replace("\r", "\n");   // Normalize old Mac line endings
-            
-        // Handle double newlines first (paragraphs)
-        response = response.Replace("\n\n", "<br><br>");
-        
-        // Handle single newlines
-        response = response.Replace("\n", "<br>");
-        
-        // Handle bullet points
-        response = response.Replace("•", "<br>•");
-        
-        return response.Trim();
+        // Handle line breaks and bullet points
+        return response
+            .Replace("\n\n", "<br><br>")
+            .Replace("\n", "<br>")
+            .Replace("•", "<br>•");
     }
     
     // Method to update the cart counter by fetching the current cart and updating the badge
