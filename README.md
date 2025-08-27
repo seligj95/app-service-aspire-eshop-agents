@@ -302,6 +302,111 @@ This multi-agent architecture provides:
 **📈 Scalability:** Easy to add new agents or modify existing ones
 **🎯 Specialization:** Each agent excels at its specific domain
 
+## Multi-Agent vs Single-Agent Architecture
+
+### When to Choose Each Approach
+
+This sample demonstrates a **multi-agent architecture**, but it's important to understand when this approach is beneficial versus a simpler **single-agent architecture** (like the [Azure AI Agent OpenAI Web App sample](https://github.com/Azure-Samples/ai-agent-openai-web-app)).
+
+### Performance Considerations
+
+**⚡ Single-Agent: Faster Response Times**
+- Direct execution path with fewer handoffs
+- Better for applications requiring semi-instantaneous responses
+- Simpler debugging and monitoring
+
+**🔄 Multi-Agent: More Handoffs, Higher Latency**
+- Multiple agent interactions before returning to user
+- Each handoff adds processing time and potential latency
+- More complex execution flows
+
+### Example: "Add a denim jacket to my cart"
+
+Let's compare how each architecture handles this request:
+
+#### Single-Agent Flow (3 steps)
+```
+User Request → Single Agent
+                   ↓
+            1. Content moderation check
+                   ↓  
+            2. Inventory lookup (MCP Tool)
+                   ↓
+            3. Add to cart (OpenAPI Tool)
+                   ↓
+            Response to User
+```
+**Estimated time:** ~2-3 seconds
+
+#### Multi-Agent Flow (7 steps)
+```
+User Request → Main Orchestrator
+                   ↓
+            1. Route to Content Moderator
+                   ↓
+            Content Moderator → Main Orchestrator (approval)
+                   ↓
+            2. Main Orchestrator checks inventory (MCP Tool)
+                   ↓  
+            3. Route to Cart Manager
+                   ↓
+            4. Cart Manager adds item (OpenAPI Tool)
+                   ↓
+            Cart Manager → Main Orchestrator (confirmation)
+                   ↓
+            5. Main Orchestrator formats response
+                   ↓
+            Response to User
+```
+**Estimated time:** ~4-6 seconds
+
+### When to Use Multi-Agent
+
+**✅ Choose Multi-Agent When:**
+- **Specialization matters:** Different domains require different expertise
+- **Team development:** Multiple teams working on different agent capabilities
+- **Compliance needs:** Separate agents for content moderation, data validation
+- **Complex workflows:** Multi-step processes with different business logic
+- **Transparency required:** Need to see individual agent decisions
+- **Future extensibility:** Plan to add more specialized capabilities
+
+**Example use cases:**
+- Financial services (compliance + analysis + recommendations)
+- Healthcare (diagnosis + treatment + scheduling)
+- E-commerce (inventory + recommendations + fraud detection)
+
+### When to Use Single-Agent
+
+**✅ Choose Single-Agent When:**
+- **Speed is critical:** Real-time or near-real-time responses required
+- **Simple workflows:** Straightforward request/response patterns
+- **Small team:** Single team maintaining the entire system
+- **Cost optimization:** Minimize complexity and latency overhead
+- **Rapid prototyping:** Quick proof-of-concept development
+
+### Sample Multi-Agent Interaction Flows
+
+#### Complex Query: "I need a business casual outfit for an interview"
+
+```
+1. User → Main Orchestrator
+2. Main Orchestrator → Content Moderator (validate request)
+3. Content Moderator → Main Orchestrator (approved)
+4. Main Orchestrator → Fashion Advisor (outfit suggestions)
+5. Fashion Advisor → Main Orchestrator (business casual recommendations)
+6. Main Orchestrator → Inventory API via MCP (check availability)
+7. Main Orchestrator → Fashion Advisor (refine based on stock)
+8. Fashion Advisor → Main Orchestrator (final outfit selection)
+9. Main Orchestrator → User (present outfit suggestions and ask for confirmation)
+10. User → Main Orchestrator (approval to proceed)
+11. Main Orchestrator → Cart Manager (add multiple items)
+12. Cart Manager → App Service API (cart operations)
+13. Cart Manager → Main Orchestrator (confirmation)
+14. Main Orchestrator → User (complete outfit added with styling tips)
+```
+
+**Total interactions:** 14 steps vs 4-5 for single agent
+
 ## Troubleshooting
 
 **Chat Not Responding:**
