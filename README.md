@@ -292,6 +292,66 @@ Wait a couple minutes and then your multi-agent fashion assistant is now fully c
 - "Find me a medium red shirt and add it to my cart" (uses both inventory and cart agents)
 - "I'm looking for a complete outfit for a date night" (fashion advice + inventory checks)
 
+## Tracing and Debugging Agent Interactions
+
+One of the key advantages of this multi-agent architecture is the ability to trace and debug complex agent interactions. Azure AI Foundry provides comprehensive tracing capabilities that let you see exactly how your agents communicate and make decisions.
+
+### Viewing Traces in Azure AI Foundry Portal
+
+**Step 1: Access Agent Threads**
+1. Go to **Azure AI Foundry Portal** → Your project
+2. Navigate to **Agents** in the left panel
+3. Select the **"My threads"** tab
+4. Find threads associated with your main orchestrator agent
+
+**Note:** You'll see multiple threads because each agent-to-agent communication creates a new thread. Look for the thread with the main orchestrator agent ID.
+
+**Step 2: Open Thread Logs**
+1. Select the relevant thread
+2. Click **"Try in playground"**
+3. Click **"Thread logs"** at the top of the screen
+4. View the complete interaction trace
+
+**Step 3: Analyze the Trace**
+The trace view shows:
+- **Thread:** Overall conversation context
+- **Run:** Individual execution instances  
+- **Run steps:** Granular steps within each run
+- **Tool calls:** MCP and OpenAPI tool invocations
+- **Inputs/Outputs:** Data flow between agents
+
+### Example: Multi-Agent Trace for "Do you have any red shirts?"
+
+Below is an example trace showing how the system handles an inventory query:
+
+![Agent Trace Example](./media/agent-trace-example.png)
+
+This trace shows:
+1. **User message:** "do you have any red shirts?"
+2. **Connected agent call:** Main orchestrator delegates to appropriate specialist
+3. **MCP tool calls:** Multiple inventory API queries to find red shirts
+4. **Response generation:** Formatted response with product details and availability
+
+You can see the complete execution flow, timing, and data passed between each component.
+
+### Advanced Tracing with Azure Monitor
+
+For production applications, you can set up enhanced tracing with Azure Monitor Application Insights:
+
+**Setup Requirements:**
+1. Connect an Application Insights resource to your Azure AI Foundry project
+2. Navigate to **Tracing** in the Azure AI Foundry portal
+3. Configure the Application Insights connection
+
+**Benefits of Azure Monitor Integration:**
+- **Performance metrics:** Response times for each agent interaction
+- **Error tracking:** Detailed error logs across the agent chain
+- **Custom attributes:** Add business-specific context to traces
+- **Query capabilities:** Use KQL to analyze trace patterns
+- **Alerts:** Set up monitoring for performance degradation
+
+For more detailed information about agent tracing, see the [Azure AI Foundry agent tracing documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/develop/trace-agents-sdk).
+
 ## Architecture Benefits
 
 This multi-agent architecture provides:
