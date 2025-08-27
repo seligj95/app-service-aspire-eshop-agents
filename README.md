@@ -136,48 +136,36 @@ We are using a Python script because the Python SDK is the most mature and the A
 This script creates a multi-agent system with the following architecture:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Fashion Store Orchestrator               │
-│                     (Main Coordinator)                     │
-│              • Connected to specialist agents              │
-│              • Has MCP Tool for inventory access           │
-└─────────────────┬───────────────────────────────────────────┘
-                  │
-        ┌─────────┼─────────┐
-        │         │         │
-        ▼         ▼         ▼
-┌─────────────┐ ┌──────────────┐ ┌─────────────────┐
-│   Cart      │ │   Fashion    │ │   Content       │
-│  Manager    │ │   Advisor    │ │  Moderator      │
-│             │ │              │ │                 │
-│ • Add items │ │ • Style tips │ │ • Safety checks │
-│ • Remove    │ │ • Outfit     │ │ • Topic         │
-│   items     │ │   advice     │ │   validation    │
-│ • View cart │ │ • Trends     │ │                 │
-└─────────────┘ └──────────────┘ └─────────────────┘
-        │                                    
-        │ OpenAPI Tool                       
-        ▼                                    
-┌─────────────────┐     ┌──────────────────┐
-│   App Service   │◄────┤ Main Orchestrator│
-│   Cart API      │     │    MCP Tool      │
-│                 │     │                  │
-│ • Shopping cart │     │ • Real-time      │
-│   operations    │     │   inventory      │
-│ • Product data  │     │ • Stock levels   │
-└─────────────────┘     │ • Product search │
-                        └──────────────────┘
-                                │
-                                │ MCP Tool
-                                ▼
-                        ┌──────────────────┐
-                        │  Inventory API   │
-                        │   (External)     │
-                        │                  │
-                        │ • Product data   │
-                        │ • Stock levels   │
-                        │ • Pricing info   │
-                        └──────────────────┘
+┌─────────────────────────────────────────────────────────────┐                       ┌──────────────────┐
+│                Fashion Store Orchestrator                   │───────────────────────│  Inventory API   │
+│                     (Main Coordinator)                      │  MCP Tool Connection  │   (External)     │
+│              • Connected to specialist agents               │                       │                  │
+│              • Has MCP Tool for inventory access            │                       │ • Product data   │
+└──────────────────────┬──────────────────────────────────────┘                       │ • Stock levels   │
+                       │                                                              │ • Pricing info   │
+        ┌──────────────┼─────────────────┐                                            └──────────────────┘
+        │              │                 │                         
+        ▼              ▼                 ▼                                
+┌─────────────┐ ┌──────────────┐ ┌─────────────────┐         
+│   Cart      │ │   Fashion    │ │   Content       │         
+│  Manager    │ │   Advisor    │ │  Moderator      │         
+│             │ │              │ │                 │         
+│ • Add items │ │ • Style tips │ │ • Safety checks │         
+│ • Remove    │ │ • Outfit     │ │ • Topic         │         
+│   items     │ │   advice     │ │   validation    │         
+│ • View cart │ │ • Trends     │ │                 │         
+└─────────────┘ └──────────────┘ └─────────────────┘         
+        │                                                    
+        │ OpenAPI Tool                                       
+        ▼                                                    
+┌─────────────────┐                                          
+│   App Service   │                                          
+│   Cart API      │                                          
+│                 │                                          
+│ • Shopping cart │                                          
+│   operations    │                                          
+│ • Product data  │                                          
+└─────────────────┘                                          
 ```
 
 ### Agent Types and Tools
