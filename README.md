@@ -324,7 +324,7 @@ The trace view shows:
 
 Below is an example trace showing how the system handles an inventory query:
 
-![Agent Trace Example](./media/agent-trace-example.png)
+<img src="media/agent-trace-example.png" alt="Agent Trace Example" width="800"/>
 
 This trace shows:
 1. **User message:** "do you have any red shirts?"
