@@ -330,7 +330,8 @@ This trace shows:
 1. **User message:** "do you have any red shirts?"
 2. **Connected agent call:** Main orchestrator delegates to appropriate specialist
 3. **MCP tool calls:** Multiple inventory API queries to find red shirts
-4. **Response generation:** Formatted response with product details and availability
+4. **Step duration:** Time taken for each step in the process
+5. **Response generation:** Formatted response with product details and availability
 
 You can see the complete execution flow, timing, and data passed between each component.
 
@@ -419,6 +420,14 @@ User Request → Main Orchestrator
             Response to User
 ```
 **Estimated time:** ~4-6 seconds
+
+### Conceptual Approaches
+
+**Single-Agent: "Monolithic" Architecture**
+Single-Agent is conceptually a "monolithic" approach. This becomes unwieldy over time if you are adding substantively divergent tasks into a single agent. While simple to start with, the complexity grows as you add more diverse capabilities to a single agent.
+
+**Multi-Agent: "Fine-Grained" Architecture**  
+Multi-Agent is conceptually a "fine-grained" approach which allows you to make changes, editing and re-factoring individual sub-agents. This should make it more maintainable for complex agent flows where you have a need for different agents that specialize in handling different tasks.
 
 ### When to Use Multi-Agent
 
