@@ -296,29 +296,35 @@ Wait a couple minutes and then your multi-agent fashion assistant is now fully c
 
 One of the key advantages of this multi-agent architecture is the ability to trace and debug complex agent interactions. Azure AI Foundry provides comprehensive tracing capabilities that let you see exactly how your agents communicate and make decisions.
 
+### Automatic Trace Information
+
+**🔍 Built-in Trace IDs:**
+Starting with each agent response, the application automatically includes **Thread ID** and **Run ID** at the bottom of every message. This makes it incredibly easy to find the exact conversation in the Azure portal.
+
 ### Viewing Traces in Azure AI Foundry Portal
 
 **Step 1: Access Agent Threads**
 1. Go to **Azure AI Foundry Portal** → Your project
 2. Navigate to **Agents** in the left panel
 3. Select the **"My threads"** tab
-4. Find threads associated with your main orchestrator agent
+4. Find the thread associated with your main orchestrator agent (use the Thread ID from the response)
 
-**Note:** You'll see multiple threads because each agent-to-agent communication creates a new thread. Look for the thread with the main orchestrator agent ID.
+**Note:** You'll see multiple threads because each agent-to-agent communication creates a new thread. Look for the thread with the main orchestrator agent ID, which uses the Thread ID provided in the response.
 
 **Step 2: Open Thread Logs**
 1. Select the relevant thread
 2. Click **"Try in playground"**
 3. Click **"Thread logs"** at the top of the screen
-4. View the complete interaction trace
+4. View the complete interaction trace. Each message has a run ID associated with it which you will also be able to see in the thread logs.
 
 **Step 3: Analyze the Trace**
 The trace view shows:
 - **Thread:** Overall conversation context
-- **Run:** Individual execution instances  
+- **Run:** Individual execution instances (use the Run ID from the response)
 - **Run steps:** Granular steps within each run
 - **Tool calls:** MCP and OpenAPI tool invocations
 - **Inputs/Outputs:** Data flow between agents
+- **Timing:** Duration of each step
 
 ### Example: Multi-Agent Trace for "Do you have any red shirts?"
 

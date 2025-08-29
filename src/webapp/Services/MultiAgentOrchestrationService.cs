@@ -299,7 +299,11 @@ namespace dotnetfashionassistant.Services
                     
                     // Clean up any debugging artifacts that might appear in responses
                     var cleanedResponse = CleanAgentResponse(textContent.Text);
-                    return cleanedResponse;
+                    
+                    // Append thread ID and run ID for portal tracing
+                    var responseWithTracing = $"{cleanedResponse}\n\n---\n\n<small>**Thread ID:** {threadId}</small>\n<small>**Run ID:** {run.Value.Id}</small>";
+                    
+                    return responseWithTracing;
                 }
                 
                 return "I apologize, but I couldn't generate a response through the fashion store agent system.";
