@@ -300,8 +300,8 @@ namespace dotnetfashionassistant.Services
                     // Clean up any debugging artifacts that might appear in responses
                     var cleanedResponse = CleanAgentResponse(textContent.Text);
                     
-                    // Append only run ID for portal tracing
-                    var responseWithTracing = $"{cleanedResponse}\n\n---\n\n<small>**Run ID:** {run.Value.Id}</small>";
+                    // Append run ID with simple formatting
+                    var responseWithTracing = $"{cleanedResponse}\n\n<div class=\"run-id-info\"><code>{run.Value.Id}</code></div>";
                     
                     return responseWithTracing;
                 }
