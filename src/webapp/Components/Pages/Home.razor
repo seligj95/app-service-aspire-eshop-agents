@@ -25,6 +25,14 @@
         
         <!-- AI Agent Chat Interface -->
         <div class="chat-container">
+            @if (!string.IsNullOrEmpty(currentThreadId))
+            {
+                <div class="thread-info">
+                    <small class="text-muted">
+                        <strong>Thread ID:</strong> @currentThreadId
+                    </small>
+                </div>
+            }
             <div class="chat-messages" id="chatMessages">
                 @if (chatHistory.Count == 0)
                 {
@@ -114,6 +122,13 @@
         border: 1px solid #dee2e6;
         border-radius: 8px;
         overflow: hidden;
+    }
+    
+    .thread-info {
+        background-color: #e9ecef;
+        padding: 8px 15px;
+        border-bottom: 1px solid #dee2e6;
+        font-size: 0.85rem;
     }
     
     .chat-messages {

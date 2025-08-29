@@ -299,7 +299,9 @@ One of the key advantages of this multi-agent architecture is the ability to tra
 ### Automatic Trace Information
 
 **🔍 Built-in Trace IDs:**
-Starting with each agent response, the application automatically includes **Thread ID** and **Run ID** at the bottom of every message. This makes it incredibly easy to find the exact conversation in the Azure portal.
+Once you send a message, the application displays the **Thread ID** at the top of the chat for persistent visibility and automatically appends the **Run ID** to each agent response. If you hit the button to start a new conversation, the thread ID will disappear and a new one will be generated once you send your first message in that conversation. This makes it incredibly easy to find the exact conversation in the Azure portal.
+
+**Note:** The run ID will not persist if you move between tabs in the fashion store, but the thread ID will remain visible.
 
 ### Viewing Traces in Azure AI Foundry Portal
 
@@ -307,9 +309,9 @@ Starting with each agent response, the application automatically includes **Thre
 1. Go to **Azure AI Foundry Portal** → Your project
 2. Navigate to **Agents** in the left panel
 3. Select the **"My threads"** tab
-4. Find the thread associated with your main orchestrator agent (use the Thread ID from the response)
+4. Find the thread associated with your main orchestrator agent (use the Thread ID from the top of the chat window)
 
-**Note:** You'll see multiple threads because each agent-to-agent communication creates a new thread. Look for the thread with the main orchestrator agent ID, which uses the Thread ID provided in the response.
+**Note:** You'll see multiple threads because each agent-to-agent communication creates a new thread. Look for the thread with the main orchestrator agent ID, which uses the Thread ID provided in the application.
 
 **Step 2: Open Thread Logs**
 1. Select the relevant thread
