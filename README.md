@@ -1,6 +1,6 @@
 # Fashion Assistant with .NET Aspire and Azure AI Foundry Multi-Agent Architecture
 
-This sample demonstrates a modern cloud-native fashion e-commerce application built with [.NET Aspire](https://learn.microsoft.com/dotnet/aspire/get-started/aspire-overview) and Azure AI Foundry's multi-agent architecture. The application showcases how to create intelligent shopping experiences using connected agents, the MCP (Model Context Protocol) tool, and the OpenAPI specified tool.
+This sample demonstrates a modern cloud-native fashion e-commerce application built with [.NET Aspire](https://learn.microsoft.com/dotnet/aspire/get-started/aspire-overview) and Azure AI Foundry's multi-agent architecture. The application showcases how to create intelligent shopping experiences using connected agents, the MCP (Model Context Protocol) tool, and the OpenAPI specified tool. The sample is also deployed on the Premium v4 tier of Azure App Service, leveraging the latest technologies for scalability and performance that App Service has to offer.
 
 ## .NET Aspire on Azure App Service
 
@@ -167,6 +167,8 @@ This script creates a multi-agent system with the following architecture:
 │ • Product data  │                                          
 └─────────────────┘                                          
 ```
+
+**Note:** The agents are currently using the gpt-4.1 model deployment. This sample will be updated to use gpt-5 once it is available in Azure AI Foundry Agent Service. For more details on model availablity, see the [Azure AI Foundry documentation for model support](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/concepts/model-region-support).
 
 ### Agent Types and Tools
 
