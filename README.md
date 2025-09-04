@@ -321,7 +321,7 @@ Once you send a message, the application displays the **Thread ID** at the top o
 3. Click **"Thread logs"** at the top of the screen
 4. View the complete interaction trace. Each message has a run ID associated with it which you will also be able to see in the thread logs.
 
-**Step 3: Analyze the Trace**
+**Step 3: Analyze the Trace**  
 The trace view shows:
 - **Thread:** Overall conversation context
 - **Run:** Individual execution instances (use the Run ID from the response)
@@ -429,7 +429,7 @@ User Request → Main Orchestrator
                    ↓
             Response to User
 ```
-**Estimated time:** ~4-6 seconds
+**Estimated time:** ~6-10 seconds
 
 ### Conceptual Approaches
 
