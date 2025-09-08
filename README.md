@@ -51,7 +51,7 @@ This region list has been updated as of August 26, 2025. To see the latest list 
 
 When prompted during `azd up`, make sure to select one of these regions for your deployment.
 
-> **Quick Start with GitHub Codespaces**
+> **Quick Start with GitHub Codespaces**  
 > This repository includes a fully configured .devcontainer that provides all the necessary dependencies and tools.
 >
 > To use Codespaces:
