@@ -14,9 +14,10 @@ RUN ln -s /usr/bin/python3.12 /usr/local/bin/python \
 
 # Install .NET 9 SDK
 RUN wget https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh -O dotnet-install.sh \
-    && bash dotnet-install.sh --version 9.0.100 \
+    && bash dotnet-install.sh --version 9.0.100 --install-dir /usr/share/dotnet \
     && rm dotnet-install.sh \
-    && ln -s /root/.dotnet/dotnet /usr/local/bin/dotnet
+    && chmod +x /usr/share/dotnet/dotnet \
+    && ln -s /usr/share/dotnet/dotnet /usr/local/bin/dotnet
 
 # Install Azure CLI
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
@@ -28,7 +29,7 @@ RUN curl -fsSL https://aka.ms/install-azd.sh | bash
 RUN az bicep install
 
 # Add dotnet to PATH
-ENV PATH="/root/.dotnet:$PATH"
+ENV PATH="/usr/share/dotnet:$PATH"
 
 # Verify installations
-RUN dotnet --info && azd --version && az --version && python --version && pip --version && az bicep version
+RUN dotnet --info && azd version && az --version && python --version && pip --version && az bicep version
