@@ -51,6 +51,14 @@ This region list has been updated as of August 26, 2025. To see the latest list 
 
 When prompted during `azd up`, make sure to select one of these regions for your deployment.
 
+> **Quick Start with GitHub Codespaces**
+> This repository includes a fully configured .devcontainer that provides all the necessary dependencies and tools.
+>
+> To use Codespaces:
+> 1. **Open in Codespaces:** Click the **"Code"** button → **"Codespaces"** → **"Create codespace on main"**
+> 2. **Wait for setup:** The dev container will automatically install .NET 9, Azure CLI, Python, and all dependencies
+> 3. **That's it!** No manual installation of prerequisites needed. Proceed directly to running `azd up` as described below.
+
 Clone and deploy this fashion assistant application:
 
 ```bash
