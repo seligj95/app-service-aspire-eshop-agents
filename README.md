@@ -1,5 +1,9 @@
 # Fashion Assistant with .NET Aspire and Azure AI Foundry Multi-Agent Architecture
 
+> **IMPORTANT: THIS REPO HAS MOVED AND THIS ONE WILL NO LONGER BY UPDATED**  
+> This repository has been moved to the official Azure Samples repo. For continued updates and the latest changes, go to [https://github.com/Azure-Samples/app-service-aspire-eshop-agents](https://github.com/Azure-Samples/app-service-aspire-eshop-agents).
+>
+
 This sample demonstrates a modern cloud-native fashion e-commerce application built with [.NET Aspire](https://learn.microsoft.com/dotnet/aspire/get-started/aspire-overview) and Azure AI Foundry's multi-agent architecture. The application showcases how to create intelligent shopping experiences using connected agents, the MCP (Model Context Protocol) tool, and the OpenAPI specified tool. The sample is also deployed on the Premium v4 tier of Azure App Service, leveraging the latest technologies for scalability and performance that App Service has to offer.
 
 <img src="media/agent-architecture.png" alt="Agent Architecture" width="800"/>
